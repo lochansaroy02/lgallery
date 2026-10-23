@@ -1,0 +1,31 @@
+# Maintainer: you <you@example.com>
+# Builds a package from this source tree:  cd packaging && makepkg -si
+pkgname=lgallery
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="One UI style photo gallery for KDE Plasma"
+arch=('any')
+license=('MIT')
+depends=('python' 'pyside6' 'python-pillow' 'qt6-declarative' 'qt6-svg' 'qt6-imageformats')
+optdepends=(
+    'python-watchdog: live updates when files change'
+    'python-send2trash: trash support (a built-in freedesktop trash is used otherwise)'
+    'python-pillow-heif: HEIC/HEIF photos (AUR)'
+    'dolphin: "Show in folder" selects the file'
+)
+source=()
+sha256sums=()
+
+package() {
+    local src="$startdir/.."
+    install -dm755 "$pkgdir/usr/share/lgallery"
+    cp -r "$src/main.py" "$src/backend" "$src/qml" "$pkgdir/usr/share/lgallery/"
+    find "$pkgdir/usr/share/lgallery" -name '__pycache__' -prune -exec rm -rf {} +
+    install -Dm644 "$src/packaging/icon.svg" "$pkgdir/usr/share/lgallery/packaging/icon.svg"
+    install -Dm644 "$src/packaging/icon.svg" "$pkgdir/usr/share/icons/hicolor/scalable/apps/lgallery.svg"
+    install -Dm644 "$src/packaging/lgallery.desktop" "$pkgdir/usr/share/applications/lgallery.desktop"
+    install -Dm755 /dev/stdin "$pkgdir/usr/bin/lgallery" <<'SH'
+#!/bin/sh
+exec /usr/bin/python3 /usr/share/lgallery/main.py "$@"
+SH
+}

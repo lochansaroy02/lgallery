@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Gallery
+GenericName=Photo Gallery
+Comment=Browse the pictures in your folders by date, One UI style
+Exec=lgallery
+Icon=lgallery
+Terminal=false
+Categories=Graphics;Viewer;Photography;Qt;KDE;
+Keywords=photos;pictures;images;gallery;albums;
+StartupWMClass=lgallery
+StartupNotify=true

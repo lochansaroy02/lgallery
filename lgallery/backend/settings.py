@@ -1,0 +1,167 @@
+"""Watched folders and preferences, persisted to ~/.config/lgallery/config.json."""
+
+import json
+import logging
+import os
+
+from PySide6.QtCore import Property, QObject, Signal
+
+from . import CONFIG_PATH
+
+log = logging.getLogger(__name__)
+
+DEFAULTS = {
+    "folders": [],            # [{"path": "/abs/path", "mount": "/mount/point"}]
+    "theme": "system",        # system | light | dark
+    "min_size_kb": 20,
+    "columns": 6,
+    "albums_by_subfolder": False,
+    "live_updates": True,
+}
+
+MIN_COLUMNS, MAX_COLUMNS = 2, 12
+
+
+def mount_point(path: str) -> str:
+    """The mount point containing path (works for paths that no longer exist)."""
+    path = os.path.realpath(path)
+    while not os.path.ismount(path):
+        parent = os.path.dirname(path)
+        if parent == path:
+            break
+        path = parent
+    return path
+
+
+def _is_within(child: str, parent: str) -> bool:
+    return child == parent or child.startswith(parent.rstrip(os.sep) + os.sep)
+
+
+class Settings(QObject):
+    foldersChanged = Signal()
+    themeChanged = Signal()
+    minSizeKbChanged = Signal()
+    columnsChanged = Signal()
+    albumsBySubfolderChanged = Signal()
+    liveUpdatesChanged = Signal()
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._data = dict(DEFAULTS)
+        self._load()
+
+    # ---- persistence -------------------------------------------------
+    def _load(self):
+        try:
+            with open(CONFIG_PATH, encoding="utf-8") as f:
+                stored = json.load(f)
+            if isinstance(stored, dict):
+                self._data.update({k: v for k, v in stored.items() if k in DEFAULTS})
+        except FileNotFoundError:
+            pass
+        except (OSError, ValueError) as exc:
+            log.warning("could not read %s: %s (using defaults)", CONFIG_PATH, exc)
+        self._data["folders"] = [
+            f for f in self._data.get("folders", []) if isinstance(f, dict) and f.get("path")
+        ]
+
+    def save(self):
+        try:
+            CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+            tmp = CONFIG_PATH.with_suffix(".tmp")
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(self._data, f, indent=2)
+            os.replace(tmp, CONFIG_PATH)
+        except OSError as exc:
+            log.error("could not save settings: %s", exc)
+
+    def _set(self, key, value, signal):
+        if self._data.get(key) != value:
+            self._data[key] = value
+            self.save()
+            signal.emit()
+
+    # ---- folders -----------------------------------------------------
+    def folder_entries(self) -> list[dict]:
+        return [dict(f) for f in self._data["folders"]]
+
+    def folder_paths(self) -> list[str]:
+        return [f["path"] for f in self._data["folders"]]
+
+    def add_folder(self, path: str) -> tuple[str, list[str]]:
+        """Add a folder. Returns (error_message, replaced_child_paths)."""
+        path = os.path.normpath(os.path.abspath(os.path.expanduser(path)))
+        if not os.path.isdir(path):
+            return f"{path} is not a folder", []
+        for existing in self.folder_paths():
+            if _is_within(path, existing):
+                return f"Already included in {existing}", []
+        children = [p for p in self.folder_paths() if _is_within(p, path)]
+        folders = [f for f in self._data["folders"] if f["path"] not in children]
+        folders.append({"path": path, "mount": mount_point(path)})
+        self._data["folders"] = folders
+        self.save()
+        self.foldersChanged.emit()
+        return "", children
+
+    def remove_folder(self, path: str) -> bool:
+        folders = [f for f in self._data["folders"] if f["path"] != path]
+        if len(folders) == len(self._data["folders"]):
+            return False
+        self._data["folders"] = folders
+        self.save()
+        self.foldersChanged.emit()
+        return True
+
+    # ---- preferences exposed to QML ------------------------------------
+    def _get_theme(self):
+        return self._data["theme"]
+
+    def _set_theme(self, value):
+        if value in ("system", "light", "dark"):
+            self._set("theme", value, self.themeChanged)
+
+    theme = Property(str, _get_theme, _set_theme, notify=themeChanged)
+
+    def _get_min_size(self):
+        return int(self._data["min_size_kb"])
+
+    def _set_min_size(self, value):
+        self._set("min_size_kb", max(0, int(value)), self.minSizeKbChanged)
+
+    minSizeKb = Property(int, _get_min_size, _set_min_size, notify=minSizeKbChanged)
+
+    def _get_columns(self):
+        return int(self._data["columns"])
+
+    def _set_columns(self, value):
+        value = max(MIN_COLUMNS, min(MAX_COLUMNS, int(value)))
+        self._set("columns", value, self.columnsChanged)
+
+    columns = Property(int, _get_columns, _set_columns, notify=columnsChanged)
+
+    def _get_by_sub(self):
+        return bool(self._data["albums_by_subfolder"])
+
+    def _set_by_sub(self, value):
+        self._set("albums_by_subfolder", bool(value), self.albumsBySubfolderChanged)
+
+    albumsBySubfolder = Property(
+        bool, _get_by_sub, _set_by_sub, notify=albumsBySubfolderChanged
+    )
+
+    def _get_live(self):
+        return bool(self._data["live_updates"])
+
+    def _set_live(self, value):
+        self._set("live_updates", bool(value), self.liveUpdatesChanged)
+
+    liveUpdates = Property(bool, _get_live, _set_live, notify=liveUpdatesChanged)
+
+    @Property(int, constant=True)
+    def minColumns(self):
+        return MIN_COLUMNS
+
+    @Property(int, constant=True)
+    def maxColumns(self):
+        return MAX_COLUMNS

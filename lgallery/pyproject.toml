@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lgallery"
+version = "0.1.0"
+description = "A One UI-style photo gallery for Linux / KDE Plasma"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = ["PySide6>=6.6", "Pillow>=10.0"]
+
+[project.optional-dependencies]
+heif = ["pillow-heif>=0.16"]
+live = ["watchdog>=4.0"]
+trash = ["send2trash>=1.8"]
+all = ["pillow-heif>=0.16", "watchdog>=4.0", "send2trash>=1.8"]
+
+[project.scripts]
+lgallery = "main:main"
+
+[tool.setuptools]
+py-modules = ["main"]
+packages = ["backend"]
