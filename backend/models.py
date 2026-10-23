@@ -16,7 +16,7 @@ from PySide6.QtCore import (
     QUrl, Signal, Slot,
 )
 
-from . import db
+from . import db, external
 from .tasks import run_async
 
 log = logging.getLogger(__name__)
@@ -130,6 +130,8 @@ class PhotoModel(QAbstractListModel):
         self._generation = 0
         self._loading = False
         self._label_cache: dict[int, str] = {}
+        self._external_files: list[str] = []
+        self._external_quick = False
         if auto_load:
             self.reload()
 
@@ -141,6 +143,9 @@ class PhotoModel(QAbstractListModel):
         if self._kind == "none":
             self._apply(gen, [])
             return
+        if self._kind == "external":
+            self._reload_external(gen)
+            return
         where, params = build_filter(self._kind, self._value)
         self._set_loading(True)
         run_async(
@@ -148,6 +153,42 @@ class PhotoModel(QAbstractListModel):
             on_done=lambda items: self._apply(gen, items),
             on_error=lambda exc: self._set_loading(False),
         )
+
+    def _reload_external(self, gen):
+        focus, files = self._value, list(self._external_files)
+
+        def full_list():
+            paths = files or external.list_folder(os.path.dirname(focus))
+            if focus not in paths:
+                paths.insert(0, focus)
+            return external.load_items(paths)
+
+        def load_rest(items):
+            self._apply(gen, items)
+            if gen == self._generation:
+                run_async(full_list, on_done=lambda all_items: self._apply(gen, all_items),
+                          on_error=lambda exc: self._set_loading(False))
+
+        self._set_loading(True)
+        if self._external_quick:
+            # show the clicked picture immediately, then list the rest of its folder
+            self._external_quick = False
+            run_async(external.load_items, [focus], on_done=load_rest,
+                      on_error=lambda exc: self._set_loading(False))
+        else:
+            run_async(full_list, on_done=lambda items: self._apply(gen, items),
+                      on_error=lambda exc: self._set_loading(False))
+
+    @Slot(str, "QStringList")
+    def openExternal(self, focus, files):
+        """Browse focus's folder (or only `files`, if several were opened) without indexing it."""
+        self._kind, self._value = "external", focus
+        self._external_files = [f for f in files if f]
+        self._external_quick = True
+        self._selected.clear()
+        self.selectionChanged.emit()
+        self.filterChanged.emit()
+        self.reload()
 
     def _apply(self, gen, items):
         if gen != self._generation:
@@ -367,6 +408,7 @@ class PhotoModel(QAbstractListModel):
             "full": f"image://full/{it[F_ID]}/{version(it[F_MTIME], it[F_SIZE])}",
             "animated": path.lower().endswith(".gif"),
             "selected": it[F_ID] in self._selected,
+            "external": it[F_ID] < 0,
         }
 
     # ---- selection -------------------------------------------------------------

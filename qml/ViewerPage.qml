@@ -41,7 +41,19 @@ Item {
         return { x: (width - w * s) / 2, y: (height - h * s) / 2, width: w * s, height: h * s }
     }
 
+    // black, empty viewer shown while a picture opened from the file manager loads
+    function showBlank() {
+        openAnim.stop()
+        closeAnim.stop()
+        closing = false
+        proxy.visible = false
+        pager.opacity = 0
+        backdrop.opacity = 1
+        visible = true
+    }
+
     function open(g, index) {
+        var wasBlank = visible && !closing && backdrop.opacity === 1 && pager.opacity === 0
         openAnim.stop()
         closeAnim.stop()
         closing = false
@@ -54,6 +66,12 @@ Item {
         pager.positionViewAtIndex(index, ListView.Beginning)
         pager.currentIndex = index
         forceActiveFocus()
+        if (wasBlank) {             // opened from the file manager: no zoom-in animation
+            proxy.visible = false
+            backdrop.opacity = 1
+            pager.opacity = 1
+            return
+        }
         var r = g.rectForItem(index)
         var target = fitRect(info.width, info.height)
         proxy.source = info.thumb || ""
@@ -107,7 +125,7 @@ Item {
     }
 
     function toggleFavorite() {
-        if (info.id === undefined) return
+        if (info.id === undefined || info.external) return
         gallery.setFavorite([info.id], !info.favorite)
     }
 
@@ -396,6 +414,12 @@ Item {
                 onClicked: moreMenu.popup()
                 Menu {
                     id: moreMenu
+                    MenuItem {
+                        text: qsTr("Open Gallery")
+                        visible: viewer.win.standalone
+                        height: visible ? implicitHeight : 0
+                        onTriggered: viewer.win.showLibrary()
+                    }
                     MenuItem { text: qsTr("Open with…"); onTriggered: viewer.win.openWith([viewer.info.path]) }
                     MenuItem { text: qsTr("Open in default app"); onTriggered: gallery.openExternally(viewer.info.path) }
                     MenuItem { text: qsTr("Show in folder"); onTriggered: gallery.showInFolder(viewer.info.path) }
@@ -460,6 +484,7 @@ Item {
             spacing: Theme.s5
             IconButton {
                 icon: "heart"
+                visible: viewer.info.external !== true   // only library pictures can be favorites
                 filled: viewer.info.favorite === true
                 color: viewer.info.favorite ? "#FF5A6E" : "white"
                 onDark: true

@@ -8,6 +8,7 @@ LGallery is a desktop photo gallery for Arch-based Linux (Manjaro) on KDE Plasma
 - **Selection mode:** right-click or long-press a picture, or tick a day header to select the whole day. Actions: Delete (to the trash), Share (copies the files to the clipboard), Open with, Copy path, Show in folder.
 - **Viewer:** arrow keys or swipe to move between pictures, wheel or double-click or pinch to zoom, drag to pan, and a Details panel.
 - **Photo editor:** Transform (crop with aspect presets, rotate, flip, straighten), 9 Filters, and Adjust (brightness, exposure, contrast, highlights, shadows, saturation, warmth, tint, sharpness, vignette). It has undo/redo and hold-to-compare, and you can **Save**, **Save as copy** or **Revert to original**.
+- **Default image viewer:** open any picture from Dolphin in Gallery's viewer. Left/right moves through that folder, and the folder is **not** added to your library.
 - **Search:** by file name, folder or date (`2025`, `October`, `oct 2024`, `Screenshot`).
 - **Live updates** (needs watchdog). Folders on unmounted drives are kept and marked *unavailable* instead of being removed.
 - **Themes:** light and dark. By default it follows your KDE colour scheme, and you can override that in Settings.
@@ -94,6 +95,27 @@ This installs `/usr/bin/lgallery`, `/usr/share/lgallery/`, `/usr/share/applicati
 **Update:** `git pull`, then `cd packaging && makepkg -sif`.
 **Uninstall:** `sudo pacman -R lgallery`
 
+### Make Gallery your image viewer (open pictures from Dolphin)
+
+After installing with option A or B, choose one of these:
+
+- **Everything at once:** open Gallery, go to **Settings → Default app → Set as default**. Gallery becomes the default for JPEG, PNG, WebP, GIF, BMP and TIFF (and HEIC/HEIF if supported).
+- **One format at a time, from Dolphin:** right-click a picture, choose **Properties**, click the **⚙ File Type Options** button next to the type, select **Gallery** in the application list, click **Move Up** to put it first, then **Apply**. If Gallery isn't listed, click **Add…** and choose **Gallery** (Graphics).
+- **Just once:** right-click a picture, choose **Open With**, then **Gallery**.
+
+Then double-clicking a picture in Dolphin (or any file manager):
+
+- opens it directly in Gallery's full-screen viewer;
+- lets you use **← / →** (or swipe) to go through the other pictures in **that folder**, in the same natural name order as Dolphin (`IMG_2` before `IMG_10`);
+- does **not** add that folder to the library. Nothing is indexed, and your Pictures/Albums tabs stay unchanged;
+- if Gallery is already open, shows the picture in that window instead of starting a second copy.
+
+Edit, Share, Delete, Details and Show in folder all work there. Favorites are only for pictures in your library, so the heart is hidden for other pictures. **Esc** / **←** closes the viewer and quits, like a photo viewer. Use **⋮ → Open Gallery** to switch to the full library instead.
+
+From a terminal, `lgallery ~/Downloads/photo.jpg` does the same. If you select several pictures and open them together, navigation is limited to just those files.
+
+To stop using Gallery as the default, pick another app in Dolphin's **File Type Options**, or in **System Settings → Default Applications** / **File Associations**.
+
 ### After installing (optional)
 
 - **Pin to the panel:** start Gallery, right-click its icon in the task manager, and choose **Pin to Task Manager**.
@@ -150,6 +172,7 @@ You can edit and save JPEG, PNG, WebP, TIFF, BMP and static GIF files, plus HEIC
 | Viewer: ← → Space Home End | Navigate |
 | Viewer: + − 0, wheel, double-click | Zoom |
 | Viewer: F / I / E | Favorite / Details / Edit |
+| Viewer opened from Dolphin: Esc | Close (quits Gallery) |
 | Editor: Ctrl+Z / Ctrl+Shift+Z | Undo / Redo |
 | Editor: Ctrl+S / Ctrl+Shift+S | Save / Save as copy |
 | Editor: hold \\ | Compare with the original |
@@ -178,6 +201,7 @@ The paths follow `XDG_CONFIG_HOME`, `XDG_DATA_HOME` and `XDG_CACHE_HOME`. Settin
 .venv/bin/python tools/make_samples.py samples --count 5000
 .venv/bin/python tools/ui_smoke.py samples --out ui-shots  # drives the UI, saves screenshots, measures scrolling
 .venv/bin/python tools/editor_smoke.py samples --out ui-shots  # editor: tabs, save as copy, save, revert
+.venv/bin/python tools/open_with_smoke.py samples --out ui-shots # open a file, browse its folder, hand-off
 ```
 
 `ui_smoke.py` uses a temporary `LGALLERY_HOME`, so your real index and settings are not touched.
@@ -193,6 +217,7 @@ backend/models.py     PhotoModel (rows of thumbnails + day sections), AlbumModel
 backend/thumbs.py     async image providers: image://thumbs (disk-cached), image://full
 backend/settings.py   folder list + preferences (JSON)
 backend/actions.py    trash, open with, show in folder, clipboard
+backend/external.py   pictures opened from a file manager (folder browsing without indexing)
 backend/editor.py     photo editor: edit pipeline, preview provider, save / copy / revert
 backend/controller.py glue object exposed to QML as `gallery`
 backend/tasks.py      run work on the thread pool, get results on the GUI thread

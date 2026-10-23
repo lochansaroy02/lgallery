@@ -9,7 +9,7 @@ from PySide6.QtCore import (
 )
 from PySide6.QtGui import QGuiApplication
 
-from . import CACHE_DIR, CONFIG_PATH, DATA_DIR, DB_PATH, HEIF_SUPPORTED, actions, db, thumbs
+from . import CACHE_DIR, CONFIG_PATH, DATA_DIR, DB_PATH, HEIF_SUPPORTED, actions, db, external, thumbs
 from .models import AlbumModel, PhotoModel, format_size
 from .scanner import ScanThread, root_available
 from .settings import Settings
@@ -46,6 +46,9 @@ class Gallery(QObject):
     cacheSizeChanged = Signal()
     toast = Signal(str)
     itemsRemoved = Signal()
+    externalOpenRequested = Signal(str)   # a file opened from Dolphin / the command line
+    activateRequested = Signal()          # second launch without files: raise the window
+    defaultViewerChanged = Signal()
 
     def __init__(self, settings: Settings, parent=None):
         super().__init__(parent)
@@ -55,7 +58,9 @@ class Gallery(QObject):
         self.albumPhotos = PhotoModel(cols, "none", auto_load=False, parent=self)
         self.searchPhotos = PhotoModel(cols, "none", auto_load=False, parent=self)
         self.albums = AlbumModel(settings, parent=self)
-        self._grids = (self.photos, self.albumPhotos, self.searchPhotos)
+        self.externalPhotos = PhotoModel(cols, "none", auto_load=False, parent=self)
+        self._grids = (self.photos, self.albumPhotos, self.searchPhotos, self.externalPhotos)
+        self._default_viewer = ""
         settings.columnsChanged.connect(self._sync_columns)
 
         self._folders: list[dict] = []
@@ -381,6 +386,45 @@ class Gallery(QObject):
     def openWith(self, desktop_file, paths):
         if not actions.launch_desktop_app(desktop_file, list(paths)):
             self.toast.emit("Could not start the application")
+
+    # ---- opening files from outside ----------------------------------------------------------
+    @Slot("QStringList")
+    def openFiles(self, args):
+        """Open pictures given on the command line / by the file manager, without indexing them."""
+        files = external.paths_from_args(list(args))
+        if not files:
+            self.activateRequested.emit()
+            return
+        focus = files[0]
+        self.externalPhotos.openExternal(focus, files if len(files) > 1 else [])
+        self.externalOpenRequested.emit(focus)
+
+    def _viewer_mimes(self):
+        return actions.VIEWER_MIMES + (actions.HEIF_MIMES if HEIF_SUPPORTED else [])
+
+    @Slot()
+    def refreshDefaultViewer(self):
+        def done(status):
+            self._default_viewer = status
+            self.defaultViewerChanged.emit()
+
+        run_async(actions.default_viewer_status, self._viewer_mimes(), on_done=done)
+
+    @Slot()
+    def setAsDefaultViewer(self):
+        def done(_):
+            self.toast.emit("Gallery is now your default image viewer")
+            self.refreshDefaultViewer()
+
+        def failed(exc):
+            self.toast.emit(str(exc) if isinstance(exc, RuntimeError) else f"Could not set default: {exc}")
+            self.refreshDefaultViewer()
+
+        run_async(actions.set_default_viewer, self._viewer_mimes(), on_done=done, on_error=failed)
+
+    @Property(str, notify=defaultViewerChanged)
+    def defaultViewer(self):
+        return self._default_viewer
 
     # ---- cache / info --------------------------------------------------------------------
     @Slot()

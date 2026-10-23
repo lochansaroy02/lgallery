@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Dialogs
+import QtQuick.Window
 import QtCore
 import "."
 import "components"
@@ -26,10 +27,23 @@ ApplicationWindow {
     readonly property var currentGrid: stack.currentItem && stack.currentItem.grid ? stack.currentItem.grid : null
     readonly property bool dialogOpen: confirmDialog.opened || openWithPopup.opened
     readonly property bool editing: editorPage.visible
+    // started by "Open with Gallery": closing the viewer quits instead of showing the library
+    property bool standalone: launchedWithFiles
+    property string externalFocus: ""
 
     // ---- API used by the views (via ApplicationWindow.window) -----------------------
     function openViewer(grid, index) { viewer.open(grid, index) }
     function openEditor(info) { editorPage.open(info) }
+    function raiseWindow() {
+        if (root.visibility === Window.Minimized) root.showNormal()
+        root.raise()
+        root.requestActivate()
+    }
+    function showLibrary() {
+        // "Open Gallery" from a picture that was opened from the file manager
+        standalone = false
+        viewer.close()
+    }
     function openWith(paths) { if (paths.length) openWithPopup.show(paths) }
     function addFolder() { folderDialog.open() }
     function showToast(message) { toast.show(message) }
@@ -205,6 +219,42 @@ ApplicationWindow {
     Connections {
         target: gallery
         function onToast(message) { toast.show(message) }
+        function onActivateRequested() { root.raiseWindow() }
+        function onExternalOpenRequested(path) {
+            if (editorPage.visible) editorPage.close()
+            if (viewer.visible && viewer.photoModel === externalPhotos) {
+                viewer.follow(path)          // already browsing outside files: jump there
+            } else {
+                root.externalFocus = path
+                viewer.showBlank()           // black screen until the folder is listed
+            }
+            root.raiseWindow()
+        }
+    }
+
+    // a stand-in "grid" for pictures that are not in the library
+    QtObject {
+        id: externalGrid
+        readonly property var photoModel: externalPhotos
+        property bool selectMode: false
+        function rectForItem(index) { return null }
+        function ensureVisible(index) { }
+    }
+    Connections {
+        target: externalPhotos
+        function onViewReset() {
+            if (root.externalFocus === "") return
+            var idx = externalPhotos.indexOfPath(root.externalFocus)
+            if (idx < 0) return
+            root.externalFocus = ""
+            viewer.open(externalGrid, idx)
+        }
+    }
+    Connections {
+        target: viewer
+        function onVisibleChanged() {
+            if (!viewer.visible && root.standalone) Qt.quit()
+        }
     }
 
     // ---- keyboard ---------------------------------------------------------------------

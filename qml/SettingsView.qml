@@ -10,7 +10,11 @@ Item {
     readonly property real headerHeight: Math.max(150, Math.min(250, height * 0.3))
     readonly property real collapse: Math.max(0, Math.min(1, flick.contentY / (headerHeight * 0.7)))
 
-    Component.onCompleted: { gallery.refreshCacheSize(); editor.refreshOriginalsSize() }
+    Component.onCompleted: {
+        gallery.refreshCacheSize()
+        editor.refreshOriginalsSize()
+        gallery.refreshDefaultViewer()
+    }
 
     component Group: Column {
         property string title
@@ -144,6 +148,28 @@ Item {
                             font.weight: Font.DemiBold
                         }
                         IconButton { icon: "plus"; enabled: prefs.columns < prefs.maxColumns; onClicked: prefs.columns = prefs.columns + 1 }
+                    }
+                }
+            }
+
+            Group {
+                title: qsTr("Default app")
+                SettingRow {
+                    title: qsTr("Default image viewer")
+                    subtitle: gallery.defaultViewer === "default"
+                              ? qsTr("Pictures you open in Dolphin or any file manager open in Gallery")
+                              : gallery.defaultViewer === "not-installed"
+                              ? qsTr("Install the launcher first (packaging/install-user.sh or the Arch package)")
+                              : gallery.defaultViewer === "partial"
+                              ? qsTr("Gallery opens some picture types. Set it for all of them?")
+                              : qsTr("Open pictures from Dolphin in Gallery. Their folders are not added to the library.")
+                    PillButton {
+                        compact: true
+                        kind: gallery.defaultViewer === "default" ? "tonal" : "filled"
+                        text: gallery.defaultViewer === "default" ? qsTr("Is default") : qsTr("Set as default")
+                        enabled: gallery.defaultViewer !== "default" && gallery.defaultViewer !== "not-installed"
+                                 && gallery.defaultViewer !== ""
+                        onClicked: gallery.setAsDefaultViewer()
                     }
                 }
             }

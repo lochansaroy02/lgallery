@@ -22,7 +22,7 @@ from PySide6.QtQuick import QQuickImageProvider
 
 from . import DATA_DIR, db
 from .models import format_size
-from .scanner import UPSERT
+from .scanner import UPSERT, read_metadata
 from .tasks import run_async
 
 log = logging.getLogger(__name__)
@@ -329,11 +329,11 @@ def save_job(source: str, dest: str, params: dict, row: dict, overwrite: bool) -
         backup = backup_path(source)
         if not backup.exists():
             shutil.copy2(source, backup)
-    keep = row.get("mtime") if row else None
-    write_image(out, dest, exif, info, row.get("taken", 0) if row else 0, keep)
+    row = row or {}
+    write_image(out, dest, exif, info, row.get("taken", 0), row.get("mtime"))
     if overwrite:
         _refresh_row(dest)
-    elif row:
+    elif row.get("root"):
         st = os.stat(dest)
         with db.connect() as conn:
             conn.execute(UPSERT, (dest, row["root"], os.path.dirname(dest), os.path.basename(dest),
@@ -448,7 +448,12 @@ class Editor(QObject):
             small = ImageOps.fit(base, (FILTER_THUMB, FILTER_THUMB), Image.BICUBIC)
             row = db.connect().execute(
                 "SELECT root, dir, taken, mtime FROM images WHERE path = ?", (path,)).fetchone()
-            row = dict(zip(("root", "dir", "taken", "mtime"), row)) if row else {}
+            if row:
+                row = dict(zip(("root", "dir", "taken", "mtime"), row))
+            else:  # not in the library (opened from a file manager)
+                mtime = os.stat(path).st_mtime
+                meta = read_metadata(path, mtime)
+                row = {"taken": meta[0] if meta else int(mtime), "mtime": mtime}
             return base, small, to_qimage(base), row
 
         def done(result):

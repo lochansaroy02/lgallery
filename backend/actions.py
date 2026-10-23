@@ -220,3 +220,72 @@ def launch_desktop_app(desktop_file: str, paths: list[str]) -> bool:
     except OSError as exc:
         log.warning("could not launch %s: %s", cmd, exc)
         return False
+
+
+# ---- default image viewer ------------------------------------------------------------------
+DESKTOP_ID = "lgallery.desktop"
+VIEWER_MIMES = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/bmp", "image/tiff"]
+HEIF_MIMES = ["image/heic", "image/heif"]
+
+
+def _mimeapps_path() -> str:
+    base = os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config")
+    return os.path.join(base, "mimeapps.list")
+
+
+def _read_mimeapps() -> configparser.RawConfigParser:
+    parser = configparser.RawConfigParser(strict=False, interpolation=None, delimiters=("=",))
+    parser.optionxform = str
+    try:
+        parser.read(_mimeapps_path(), encoding="utf-8")
+    except (configparser.Error, UnicodeDecodeError):
+        pass
+    return parser
+
+
+def desktop_file_installed() -> bool:
+    return any(os.path.exists(os.path.join(d, DESKTOP_ID)) for d in _app_dirs())
+
+
+def default_viewer_status(mimes: list[str]) -> str:
+    """"default" | "partial" | "other" | "not-installed" (no lgallery.desktop to point at)."""
+    if not desktop_file_installed():
+        return "not-installed"
+    parser = _read_mimeapps()
+    section = parser["Default Applications"] if parser.has_section("Default Applications") else {}
+    ours = [m for m in mimes if section.get(m, "").split(";")[0].strip() == DESKTOP_ID]
+    if len(ours) == len(mimes):
+        return "default"
+    return "partial" if ours else "other"
+
+
+def set_default_viewer(mimes: list[str]) -> None:
+    """Make Gallery the default app for the image types (writes ~/.config/mimeapps.list)."""
+    if not desktop_file_installed():
+        raise RuntimeError("Install the launcher first (packaging/install-user.sh or the Arch package)")
+    done = False
+    if shutil.which("xdg-mime"):
+        result = subprocess.run(["xdg-mime", "default", DESKTOP_ID, *mimes],
+                                capture_output=True, timeout=15)
+        done = result.returncode == 0 and default_viewer_status(mimes) == "default"
+    if not done:  # no xdg-utils (or it wrote elsewhere): edit mimeapps.list directly
+        parser = _read_mimeapps()
+        if not parser.has_section("Default Applications"):
+            parser.add_section("Default Applications")
+        if not parser.has_section("Added Associations"):
+            parser.add_section("Added Associations")
+        for mime in mimes:
+            parser.set("Default Applications", mime, DESKTOP_ID + ";")
+            added = [a for a in parser.get("Added Associations", mime, fallback="").split(";") if a]
+            if DESKTOP_ID not in added:
+                parser.set("Added Associations", mime, ";".join([DESKTOP_ID] + added) + ";")
+        path = _mimeapps_path()
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        tmp = path + ".lgallery-tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            parser.write(f, space_around_delimiters=False)
+        os.replace(tmp, path)
+    for tool in ("kbuildsycoca6", "kbuildsycoca5"):  # let KDE notice right away
+        if shutil.which(tool):
+            subprocess.run([tool], capture_output=True, timeout=60)
+            break

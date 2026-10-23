@@ -18,7 +18,7 @@ from PySide6.QtQuick import (
     QQuickAsyncImageProvider, QQuickImageResponse, QQuickTextureFactory,
 )
 
-from . import THUMB_DIR, db
+from . import THUMB_DIR, db, external
 
 log = logging.getLogger(__name__)
 
@@ -141,7 +141,11 @@ class _Job(QRunnable):
             if response.cancelled:
                 response.finish(None, "cancelled")
                 return
-            found = db.path_for_id(self.image_id)
+            if self.image_id < 0:  # opened from a file manager, not in the index
+                path = external.lookup(self.image_id)
+                found = (path, 1) if path else None
+            else:
+                found = db.path_for_id(self.image_id)
             if not found:
                 response.finish(None, "not in index")
                 return
