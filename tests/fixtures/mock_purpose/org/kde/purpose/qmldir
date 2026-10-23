@@ -1,0 +1,3 @@
+module org.kde.purpose
+PurposeAlternativesModel 1.0 PurposeAlternativesModel.qml
+AlternativesView 1.0 AlternativesView.qml

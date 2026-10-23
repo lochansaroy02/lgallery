@@ -8,7 +8,7 @@ import signal
 import sys
 from pathlib import Path
 
-from PySide6.QtCore import QObject, QSize, QUrl
+from PySide6.QtCore import QObject, QSize, Qt, QUrl
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtGui import QGuiApplication, QIcon, QPixmap
 from PySide6.QtQml import QQmlApplicationEngine
@@ -83,6 +83,9 @@ class ThemeIconProvider(QQuickImageProvider):
         edge = max(requested_size.width(), requested_size.height(), 48)
         icon = QIcon(icon_id) if os.path.isabs(icon_id) else QIcon.fromTheme(icon_id)
         pixmap = icon.pixmap(QSize(edge, edge)) if not icon.isNull() else QPixmap()
+        if pixmap.isNull():  # unknown icon: a 1x1 transparent pixmap, QML shows its fallback
+            pixmap = QPixmap(1, 1)
+            pixmap.fill(Qt.transparent)
         if size is not None:
             size.setWidth(pixmap.width())
             size.setHeight(pixmap.height())

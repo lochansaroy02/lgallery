@@ -79,9 +79,10 @@ Item {
             }
 
             Action {
+                id: shareAction
                 icon: "share"
                 label: qsTr("Share")
-                onTriggered: gallery.shareFiles(bar.photoModel.selectedPaths())
+                onTriggered: bar.win.share(bar.photoModel.selectedPaths(), shareAction, function() { bar.finished() })
             }
             Action {
                 id: favAction

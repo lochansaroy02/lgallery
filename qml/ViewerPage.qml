@@ -31,6 +31,7 @@ Item {
         info = photoModel && currentIndex >= 0 && currentIndex < photoModel.itemCount
                ? photoModel.itemAt(currentIndex) : ({})
         canRevert = info.path ? editor.hasOriginal(info.path) : false
+        if (info.path) gallery.prepareShare([info.path])   // warm up the share menu
     }
     function follow(path) { followPath = path }
     onCurrentIndexChanged: refreshInfo()
@@ -500,11 +501,12 @@ Item {
                 onClicked: viewer.win.openEditor(viewer.info)
             }
             IconButton {
+                id: shareButton
                 icon: "share"
                 color: "white"
                 onDark: true
-                tip: qsTr("Share (copy file to clipboard)")
-                onClicked: gallery.shareFiles([viewer.info.path])
+                tip: qsTr("Share")
+                onClicked: viewer.win.share([viewer.info.path], shareButton)
             }
             IconButton {
                 icon: "trash"

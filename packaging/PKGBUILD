@@ -12,6 +12,7 @@ optdepends=(
     'python-send2trash: trash support (a built-in freedesktop trash is used otherwise)'
     'python-pillow-heif: HEIC/HEIF photos (AUR)'
     'dolphin: "Show in folder" selects the file'
+    'purpose: KDE share menu (KDE Connect, Bluetooth, e-mail, Imgur, ...)'
 )
 source=()
 sha256sums=()

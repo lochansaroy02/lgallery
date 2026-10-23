@@ -25,7 +25,7 @@ ApplicationWindow {
 
     readonly property real navInset: Theme.navHeight + Theme.s5 * 2
     readonly property var currentGrid: stack.currentItem && stack.currentItem.grid ? stack.currentItem.grid : null
-    readonly property bool dialogOpen: confirmDialog.opened || openWithPopup.opened
+    readonly property bool dialogOpen: confirmDialog.opened || openWithPopup.opened || shareMenu.opened
     readonly property bool editing: editorPage.visible
     // started by "Open with Gallery": closing the viewer quits instead of showing the library
     property bool standalone: launchedWithFiles
@@ -45,6 +45,7 @@ ApplicationWindow {
         viewer.close()
     }
     function openWith(paths) { if (paths.length) openWithPopup.show(paths) }
+    function share(paths, anchor, done) { if (paths.length) shareMenu.openFor(paths, anchor, done) }
     function addFolder() { folderDialog.open() }
     function showToast(message) { toast.show(message) }
     function confirm(title, message, action, callback) {
@@ -208,6 +209,7 @@ ApplicationWindow {
 
     ConfirmDialog { id: confirmDialog }
     OpenWithPopup { id: openWithPopup }
+    ShareMenu { id: shareMenu }
 
     FolderDialog {
         id: folderDialog

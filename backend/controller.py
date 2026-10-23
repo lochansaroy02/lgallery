@@ -5,11 +5,14 @@ import logging
 import os
 
 from PySide6.QtCore import (
-    Property, QFileSystemWatcher, QObject, Qt, QTimer, QUrl, Signal, Slot,
+    Property, QFileSystemWatcher, QObject, QProcess, QProcessEnvironment, Qt, QTimer, QUrl,
+    Signal, Slot,
 )
 from PySide6.QtGui import QGuiApplication
 
-from . import CACHE_DIR, CONFIG_PATH, DATA_DIR, DB_PATH, HEIF_SUPPORTED, actions, db, external, thumbs
+from . import (
+    CACHE_DIR, CONFIG_PATH, DATA_DIR, DB_PATH, HEIF_SUPPORTED, actions, db, external, share, thumbs,
+)
 from .models import AlbumModel, PhotoModel, format_size
 from .scanner import ScanThread, root_available
 from .settings import Settings
@@ -49,6 +52,7 @@ class Gallery(QObject):
     externalOpenRequested = Signal(str)   # a file opened from Dolphin / the command line
     activateRequested = Signal()          # second launch without files: raise the window
     defaultViewerChanged = Signal()
+    shareTargetsChanged = Signal()
 
     def __init__(self, settings: Settings, parent=None):
         super().__init__(parent)
@@ -61,6 +65,12 @@ class Gallery(QObject):
         self.externalPhotos = PhotoModel(cols, "none", auto_load=False, parent=self)
         self._grids = (self.photos, self.albumPhotos, self.searchPhotos, self.externalPhotos)
         self._default_viewer = ""
+        self._share_available = share.available()
+        self._share_cache: dict[str, list] = {}
+        self._share_mime = ""
+        self._share_targets: list = []
+        self._share_loading = False
+        self._share_procs: set = set()
         settings.columnsChanged.connect(self._sync_columns)
 
         self._folders: list[dict] = []
@@ -359,6 +369,92 @@ class Gallery(QObject):
     def shareFiles(self, paths):
         actions.copy_files(list(paths))
         self.toast.emit("Copied to clipboard. Paste into any app to share.")
+
+    # ---- KDE share menu (Purpose) -------------------------------------------------------------
+    @Slot("QStringList")
+    def prepareShare(self, paths):
+        """Load the share targets for these files (cached per MIME type)."""
+        paths = [p for p in paths if p]
+        if not paths:
+            return
+        mime = share.common_mime(paths)
+        self._share_mime = mime
+        if mime in self._share_cache:
+            self._set_share_targets(self._share_cache[mime], False)
+            return
+        if not self._share_available:
+            self._set_share_targets([], False)
+            return
+        self._set_share_targets([], True)
+
+        def done(targets, mime=mime):
+            self._share_cache[mime] = targets
+            if self._share_mime == mime:
+                self._set_share_targets(targets, False)
+
+        run_async(share.list_targets, paths, mime, on_done=done,
+                  on_error=lambda _exc: self._set_share_targets([], False))
+
+    def _set_share_targets(self, targets, loading):
+        self._share_targets = [t for t in targets if not share.is_clipboard(t.get("id", ""))]
+        self._share_loading = loading
+        self.shareTargetsChanged.emit()
+
+    @Slot(str, "QStringList")
+    def shareWith(self, plugin_id, paths):
+        paths = [p for p in paths if p]
+        if not paths:
+            return
+        if not plugin_id or share.is_clipboard(plugin_id) or not self._share_available:
+            self.shareFiles(paths)
+            return
+        cmd = share.helper_command("run", share.common_mime(paths), plugin_id, paths)
+        proc = QProcess(self)
+        env = QProcessEnvironment()
+        for key, value in share.helper_env().items():
+            env.insert(key, value)
+        proc.setProcessEnvironment(env)
+        output = []
+        proc.readyReadStandardError.connect(
+            lambda: output.append(bytes(proc.readAllStandardError()).decode(errors="replace")))
+        proc.readyReadStandardOutput.connect(
+            lambda: output.append(bytes(proc.readAllStandardOutput()).decode(errors="replace")))
+
+        def finished(code, _status):
+            self._share_procs.discard(proc)
+            proc.deleteLater()
+            events = share.parse_events("".join(output))
+            result = next((e for e in events if e.get("event") in ("finished", "cancelled")), None)
+            if result is None:
+                if code != 0:
+                    log.warning("share helper exited with %s: %s", code, "".join(output)[-800:])
+                    self.toast.emit("Sharing failed")
+                return
+            if result["event"] == "cancelled":
+                return
+            message, url = share.describe_result(result)
+            if url:
+                actions.copy_text(url)
+            if message:
+                self.toast.emit(message)
+
+        proc.finished.connect(finished)
+        proc.errorOccurred.connect(
+            lambda err: err == QProcess.FailedToStart and self.toast.emit("Could not start the share helper"))
+        self._share_procs.add(proc)
+        proc.start(cmd[0], cmd[1:])
+
+    @Property(bool, constant=True)
+    def shareAvailable(self):
+        return self._share_available
+
+    @Property("QVariantList", notify=shareTargetsChanged)
+    def shareTargets(self):
+        return self._share_targets
+
+    @Property(bool, notify=shareTargetsChanged)
+    def shareLoading(self):
+        return self._share_loading
 
     @Slot(str)
     def openExternally(self, path):

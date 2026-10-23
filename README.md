@@ -5,7 +5,8 @@ LGallery is a desktop photo gallery for Arch-based Linux (Manjaro) on KDE Plasma
 - **Pictures tab:** day headers that stay visible while you scroll ("Today", "Yesterday", "Fri, Oct 23"), a title that shrinks as you scroll, a fast-scroll handle with a month bubble, and **Ctrl + mouse wheel** or **Ctrl +/-** to change the number of columns.
 - **Albums tab:** one album per watched folder, or one per sub-folder (a setting), plus **Favorites**.
 - **Folders tab:** add or remove watched folders and rescan. Removing a folder **never deletes files**.
-- **Selection mode:** right-click or long-press a picture, or tick a day header to select the whole day. Actions: Delete (to the trash), Share (copies the files to the clipboard), Open with, Copy path, Show in folder.
+- **Selection mode:** right-click or long-press a picture, or tick a day header to select the whole day. Actions: Delete (to the trash), Share, Open with, Copy path, Show in folder.
+- **Share menu:** the same options as Dolphin's *Share* submenu: Copy to Clipboard, KDE Connect, Bluetooth, e-mail, Telegram, Imgur, Nextcloud, Google Drive and anything else your KDE has installed.
 - **Viewer:** arrow keys or swipe to move between pictures, wheel or double-click or pinch to zoom, drag to pan, and a Details panel.
 - **Photo editor:** Transform (crop with aspect presets, rotate, flip, straighten), 9 Filters, and Adjust (brightness, exposure, contrast, highlights, shadows, saturation, warmth, tint, sharpness, vignette). It has undo/redo and hold-to-compare, and you can **Save**, **Save as copy** or **Revert to original**.
 - **Default image viewer:** open any picture from Dolphin in Gallery's viewer. Left/right moves through that folder, and the folder is **not** added to your library.
@@ -37,7 +38,7 @@ cd lgallery
 **Step 1: install system libraries and the Python dependencies.** Arch's system Python is "externally managed", so the dependencies go into a virtual environment inside the project folder:
 
 ```bash
-sudo pacman -S --needed python qt6-declarative qt6-svg qt6-imageformats
+sudo pacman -S --needed python qt6-declarative qt6-svg qt6-imageformats purpose
 python -m venv .venv
 .venv/bin/pip install -r requirements.txt
 ```
@@ -251,7 +252,7 @@ tests/                backend tests
 
 ## Notes and limitations
 
-- **Share** copies the selected files to the clipboard so you can paste them into Dolphin, a chat app or an email. KDE has no stable command-line share dialog.
+- **Share** uses KDE's sharing framework (*Purpose*, package `purpose`, normally installed with Dolphin). Because pip's PySide6 bundles its own Qt, Purpose runs in a small helper under the system Qt (`qml/share/ShareHelper.qml`, started with `/usr/lib/qt6/bin/qml` from `qt6-declarative`). Targets that need input (which KDE Connect device, which e-mail account, …) open a small KDE window. Uploads such as Imgur copy the resulting link to the clipboard. Without Purpose, the menu offers only *Copy to Clipboard*.
 - **Edit / Open with** lists the applications that declare support for the file's MIME type, read from their `.desktop` files.
 - **Show in folder** asks the file manager over D-Bus (`org.freedesktop.FileManager1`) to open the folder with the file selected. Dolphin supports this. Otherwise the parent folder is opened.
 - Videos are not indexed yet.
