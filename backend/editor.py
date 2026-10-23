@@ -720,6 +720,42 @@ class Editor(QObject):
     def saveCopy(self):
         self._start_save(overwrite=False)
 
+    @Slot("QStringList", bool)
+    def quickRotate(self, paths, clockwise):
+        """Rotate pictures 90° and save (the original is kept for Revert)."""
+        paths = [p for p in paths if p]
+        if not paths:
+            return
+        params = copy.deepcopy(DEFAULTS)
+        params["rotate"] = 270 if clockwise else 90
+
+        def work(paths):
+            done, failed = [], []
+            conn = db.connect()
+            for path in paths:
+                row = conn.execute("SELECT root, dir, taken, mtime FROM images WHERE path = ?",
+                                   (path,)).fetchone()
+                row = dict(zip(("root", "dir", "taken", "mtime"), row)) if row else {}
+                try:
+                    save_job(path, path, params, row, overwrite=True)
+                    done.append(path)
+                except Exception as exc:
+                    log.warning("rotate %s failed: %s", path, exc)
+                    failed.append(path)
+            return done, failed
+
+        def finished(result):
+            done, failed = result
+            self.libraryChanged.emit()
+            self.originalsSizeChanged.emit()
+            if failed:
+                self.message.emit(f"Could not rotate {len(failed)} picture(s)")
+            elif len(done) > 1:
+                self.message.emit(f"Rotated {len(done)} pictures")
+            self.saved.emit(done[0] if done else "", False)
+
+        run_async(work, paths, on_done=finished)
+
     @Slot(str, result=bool)
     def hasOriginal(self, path):
         return has_original(path)

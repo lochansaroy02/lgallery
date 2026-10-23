@@ -4,7 +4,7 @@ import json
 import logging
 import os
 
-from PySide6.QtCore import Property, QObject, Signal
+from PySide6.QtCore import Property, QObject, Signal, Slot
 
 from . import CONFIG_PATH
 
@@ -17,7 +17,10 @@ DEFAULTS = {
     "columns": 6,
     "albums_by_subfolder": False,
     "live_updates": True,
+    "sort_ascending": False,  # False = newest first
+    "recent_files": [],       # pictures opened from outside the library
 }
+MAX_RECENT = 10
 
 MIN_COLUMNS, MAX_COLUMNS = 2, 12
 
@@ -44,6 +47,8 @@ class Settings(QObject):
     columnsChanged = Signal()
     albumsBySubfolderChanged = Signal()
     liveUpdatesChanged = Signal()
+    sortAscendingChanged = Signal()
+    recentFilesChanged = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -157,6 +162,26 @@ class Settings(QObject):
         self._set("live_updates", bool(value), self.liveUpdatesChanged)
 
     liveUpdates = Property(bool, _get_live, _set_live, notify=liveUpdatesChanged)
+
+    def _get_sort(self):
+        return bool(self._data["sort_ascending"])
+
+    def _set_sort(self, value):
+        self._set("sort_ascending", bool(value), self.sortAscendingChanged)
+
+    sortAscending = Property(bool, _get_sort, _set_sort, notify=sortAscendingChanged)
+
+    @Property("QStringList", notify=recentFilesChanged)
+    def recentFiles(self):
+        return [p for p in self._data.get("recent_files", []) if isinstance(p, str)]
+
+    def add_recent(self, paths: list[str]):
+        recent = [p for p in paths if p] + [p for p in self.recentFiles if p not in paths]
+        self._set("recent_files", recent[:MAX_RECENT], self.recentFilesChanged)
+
+    @Slot()
+    def clearRecent(self):
+        self._set("recent_files", [], self.recentFilesChanged)
 
     @Property(int, constant=True)
     def minColumns(self):

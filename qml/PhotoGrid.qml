@@ -146,10 +146,11 @@ Item {
             onClicked: grid.selectMode = true
         }
         IconButton {
+            id: menuButton
             visible: !grid.selectMode && grid.showSettingsButton
-            icon: "settings"
-            tip: qsTr("Settings")
-            onClicked: grid.settingsRequested()
+            icon: "more"
+            tip: qsTr("Menu")
+            onClicked: ApplicationWindow.window.openAppMenu(menuButton)
         }
     }
 

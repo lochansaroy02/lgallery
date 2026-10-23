@@ -33,52 +33,39 @@ git clone https://github.com/lochansaroy02/lgallery.git
 cd lgallery
 ```
 
-### Option A: user install (no root)
+### Option A: user install (recommended)
 
-**Step 1: install system libraries and the Python dependencies.** Arch's system Python is "externally managed", so the dependencies go into a virtual environment inside the project folder:
-
-```bash
-sudo pacman -S --needed python qt6-declarative qt6-svg qt6-imageformats purpose
-python -m venv .venv
-.venv/bin/pip install -r requirements.txt
-```
-
-<details>
-<summary>Alternative: use the distro's PySide6 instead of the pip wheels (smaller download, same Qt as Plasma)</summary>
+From the project folder, one command does everything:
 
 ```bash
-sudo pacman -S --needed pyside6 python-pillow python-watchdog python-send2trash
-python -m venv --system-site-packages .venv
-.venv/bin/pip install pillow-heif      # optional HEIC support (or: yay -S python-pillow-heif)
-```
-</details>
-
-**Step 2: check that it runs.**
-
-```bash
-.venv/bin/python main.py
+./update.sh --install
 ```
 
-**Step 3: add it to the KDE launcher.**
+It:
+1. installs the system packages with pacman: `pyside6` (the system Qt bindings), `python-pillow`, `qt6-declarative`, `qt6-svg`, `qt6-imageformats` and, when available, `python-watchdog`, `python-send2trash`, `purpose`, `plasma-integration` and `xdg-utils`;
+2. creates `.venv` on top of them (`--system-site-packages`) and adds `pillow-heif` from PyPI for HEIC photos;
+3. installs the launcher, menu entry and icon (`~/.local/bin/lgallery`, `~/.local/share/applications/lgallery.desktop`).
 
-```bash
-./packaging/install-user.sh
-```
+Gallery runs on **Manjaro's own Qt**, not on pip's bundled copy. That is what makes the **KDE global menu**, native KDE file dialogs and the KDE theme work, and it saves about 1 GB of downloads.
 
-This installs:
+Open the application launcher and search for **Gallery**. If it doesn't show up right away, run `kbuildsycoca6` or log out and back in. You can also start it from a terminal with `lgallery` (if `~/.local/bin` is on your `PATH`).
 
-| File | Purpose |
-| --- | --- |
-| `~/.local/bin/lgallery` | launcher script (runs `main.py` with the project's `.venv`) |
-| `~/.local/share/applications/lgallery.desktop` | the app menu entry |
-| `~/.local/share/icons/hicolor/scalable/apps/lgallery.svg` | the icon |
-
-Open the application launcher and search for **Gallery**. If it doesn't show up right away, run `kbuildsycoca6` or log out and back in. You can also start it from a terminal with `~/.local/bin/lgallery` (or just `lgallery` if `~/.local/bin` is on your `PATH`).
-
-> The launcher points to this folder. If you move or rename the project folder, run `./packaging/install-user.sh` again.
+> The launcher points to this folder. If you move or rename the project folder, run `./update.sh --no-pull` again.
 
 **Update:** `./update.sh` (see [Updating](#updating)).
 **Uninstall:** `./packaging/install-user.sh --uninstall`
+
+<details>
+<summary>Other distributions / manual setup with pip</summary>
+
+Without pacman, `update.sh` falls back to pip's PySide6. Everything works except the global menu on Wayland, and you use the ⋮ menu instead.
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+./packaging/install-user.sh
+```
+</details>
 
 ### Option B: system-wide Arch package
 
@@ -106,7 +93,7 @@ From the project folder, run:
 
 It pulls the latest commits from GitHub, shows what changed, and updates whichever install you have:
 
-- **User install (option A):** updates the Python packages if `requirements.txt` changed, then refreshes the launcher, menu entry and icon. If an Arch Python upgrade broke `.venv`, it is recreated automatically.
+- **User install (option A):** installs any missing system packages with pacman, then refreshes the launcher, menu entry and icon. An older install that used pip's PySide6 is switched to Manjaro's `pyside6` automatically (needed for the global menu). If an Arch Python upgrade broke `.venv`, it is recreated.
 - **Arch package (option B):** rebuilds and reinstalls the package with `makepkg` (asks for your password).
 - **Not installed yet:** sets up `.venv`; add `--install` to also put Gallery in the launcher.
 
@@ -181,6 +168,29 @@ Reverting restores the original file exactly (byte for byte, including its modif
 
 You can edit and save JPEG, PNG, WebP, TIFF, BMP and static GIF files, plus HEIC when pillow-heif has an encoder. Animated GIF/WebP files can't be edited.
 
+### Menus: KDE global menu and the ⋮ menu
+
+Gallery has a full application menu: **File, Edit, View, Go, Settings, Help**.
+
+- **With the Global Menu widget** (Plasma panel → *Add Widgets → Global Menu*), the menu appears in your panel like on macOS. It works on Wayland and X11.
+- **Without it,** the same menu is behind the **⋮** button at the top right of the Pictures, Albums and Folders tabs.
+
+Items enable themselves from context: a picture open in the viewer, a selection, or the editor.
+
+| Menu | What's in it |
+| --- | --- |
+| **File** | Add Folder…, Open Picture… (view a picture without adding its folder), **Open Recent ▸**, Save / Save as Copy (in the editor), **Share ▸** (KDE share targets), Open With…, Show in Folder, Rescan Folders, Move to Trash, Quit |
+| **Edit** | Undo / Redo (editor), Select All, Deselect All, Copy Picture, Copy Path, Edit Picture…, **Rotate ▸** Left / Right (saved, revertible), Add to / Remove from Favorites, Revert to Original |
+| **View** | Pictures / Albums / Folders, **Thumbnail Size ▸** (bigger, smaller, 2–12 columns), **Sort ▸** Newest / Oldest First, **Theme ▸** System / Light / Dark, Albums per Sub-folder, Zoom In / Out / Fit, Show Details, Full Screen |
+| **Go** | Back, Previous / Next / First / Last Picture, Today, **Jump to Year ▸**, **Albums ▸** (every album), Favorites, Search |
+| **Settings** | Settings…, Live Updates, Set as Default Image Viewer, Clear Thumbnail Cache |
+| **Help** | Keyboard Shortcuts, Project Page, Report a Problem, About Gallery |
+
+**If the global menu stays empty:**
+1. Run `./update.sh`. The global menu needs Gallery on Manjaro's PySide6 (`pyside6`) plus `plasma-integration`, and the script switches older installs over.
+2. Make sure a Global Menu widget is in a panel, then **restart Gallery**. Gallery checks for the global menu when it starts.
+3. Check that `qdbus6 com.canonical.AppMenu.Registrar` (or `qdbus`) lists a service. If it doesn't, the Plasma global-menu service isn't running; adding the widget starts it.
+
 ### Keyboard
 
 | Key | Action |
@@ -192,6 +202,15 @@ You can edit and save JPEG, PNG, WebP, TIFF, BMP and static GIF files, plus HEIC
 | Esc | Close viewer / leave selection / go back |
 | F5 | Rescan |
 | Ctrl+O | Add folder |
+| Ctrl+Shift+O | Open picture (without adding its folder) |
+| Ctrl+1 / Ctrl+2 / Ctrl+3 | Pictures / Albums / Folders |
+| Ctrl+C / Ctrl+Shift+C | Copy picture / copy path |
+| Ctrl+L / Ctrl+R | Rotate left / right (saved; revert from ⋮) |
+| Ctrl+Shift+A | Deselect all |
+| Ctrl+Home | Today |
+| F11 | Full screen |
+| Ctrl+F1 | All keyboard shortcuts |
+| Ctrl+Q | Quit |
 | Viewer: ← → Space Home End | Navigate |
 | Viewer: + − 0, wheel, double-click | Zoom |
 | Viewer: F / I / E | Favorite / Details / Edit |
@@ -225,6 +244,7 @@ The paths follow `XDG_CONFIG_HOME`, `XDG_DATA_HOME` and `XDG_CACHE_HOME`. Settin
 .venv/bin/python tools/ui_smoke.py samples --out ui-shots  # drives the UI, saves screenshots, measures scrolling
 .venv/bin/python tools/editor_smoke.py samples --out ui-shots  # editor: tabs, save as copy, save, revert
 .venv/bin/python tools/open_with_smoke.py samples --out ui-shots # open a file, browse its folder, hand-off
+.venv/bin/python tools/menu_smoke.py samples --out ui-shots     # every menu action in context
 ```
 
 `ui_smoke.py` uses a temporary `LGALLERY_HOME`, so your real index and settings are not touched.

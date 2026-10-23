@@ -79,10 +79,11 @@ def build_filter(kind: str, value: str) -> tuple[str, list]:
     return "1", []
 
 
-def query_items(where: str, params: list) -> list[list]:
+def query_items(where: str, params: list, ascending: bool = False) -> list[list]:
     """Runs in a worker thread."""
+    order = "taken ASC, path ASC" if ascending else "taken DESC, path DESC"
     rows = db.connect().execute(
-        f"SELECT {COLUMNS_SQL} FROM images WHERE {where} ORDER BY taken DESC, path DESC",
+        f"SELECT {COLUMNS_SQL} FROM images WHERE {where} ORDER BY {order}",
         params,
     ).fetchall()
     return [list(r) + [_day_ordinal(r[2])] for r in rows]
@@ -132,6 +133,7 @@ class PhotoModel(QAbstractListModel):
         self._label_cache: dict[int, str] = {}
         self._external_files: list[str] = []
         self._external_quick = False
+        self._ascending = False
         if auto_load:
             self.reload()
 
@@ -149,7 +151,7 @@ class PhotoModel(QAbstractListModel):
         where, params = build_filter(self._kind, self._value)
         self._set_loading(True)
         run_async(
-            query_items, where, params,
+            query_items, where, params, self._ascending,
             on_done=lambda items: self._apply(gen, items),
             on_error=lambda exc: self._set_loading(False),
         )
@@ -298,6 +300,30 @@ class PhotoModel(QAbstractListModel):
         self.viewReset.emit()
 
     columns = Property(int, _get_columns, _set_columns, notify=columnsChanged)
+
+    def set_ascending(self, value: bool):
+        if bool(value) != self._ascending:
+            self._ascending = bool(value)
+            if self._kind not in ("none", "external"):
+                self.reload()
+
+    @Slot(result="QVariantList")
+    def years(self):
+        """Years present, in display order (for Go > Jump to Year)."""
+        seen = []
+        for it in self._items:
+            year = date.fromordinal(it[F_DAY]).year
+            if not seen or seen[-1] != year:
+                if year not in seen:
+                    seen.append(year)
+        return seen
+
+    @Slot(int, result=int)
+    def firstIndexOfYear(self, year):
+        for i, it in enumerate(self._items):
+            if date.fromordinal(it[F_DAY]).year == year:
+                return i
+        return -1
 
     @Property(int, notify=itemCountChanged)
     def itemCount(self):
@@ -599,3 +625,8 @@ class AlbumModel(QAbstractListModel):
     @Property(int, notify=countChanged)
     def count(self):
         return len(self._albums)
+
+    @Property("QVariantList", notify=countChanged)
+    def entries(self):
+        return [{"kind": a["kind"], "key": a["key"], "title": a["title"], "count": a["count"]}
+                for a in self._albums]

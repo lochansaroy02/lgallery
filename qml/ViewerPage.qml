@@ -119,6 +119,17 @@ Item {
         var n = currentIndex + delta
         if (photoModel && n >= 0 && n < photoModel.itemCount) pager.currentIndex = n
     }
+    function goTo(index) {
+        if (photoModel && index >= 0 && index < photoModel.itemCount) pager.currentIndex = index
+    }
+    function zoomStep(factor) {
+        var page = pager.currentItem
+        if (page) page.animatedZoomAt(page.zoom * factor, width / 2, height / 2)
+    }
+    function fit() {
+        var page = pager.currentItem
+        if (page) page.resetZoom()
+    }
 
     function deleteCurrent() {
         if (!info.path) return

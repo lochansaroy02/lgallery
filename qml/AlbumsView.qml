@@ -22,7 +22,7 @@ Item {
         title: qsTr("Albums")
         progress: view.collapse
         IconButton { icon: "search"; tip: qsTr("Search (Ctrl+F)"); onClicked: view.searchRequested() }
-        IconButton { icon: "settings"; tip: qsTr("Settings"); onClicked: view.settingsRequested() }
+        IconButton { id: menuButton; icon: "more"; tip: qsTr("Menu"); onClicked: ApplicationWindow.window.openAppMenu(menuButton) }
     }
 
     GridView {

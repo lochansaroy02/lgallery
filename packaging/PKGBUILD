@@ -1,7 +1,7 @@
 # Maintainer: you <you@example.com>
 # Builds a package from this source tree:  cd packaging && makepkg -si
 pkgname=lgallery
-pkgver=0.1.0
+pkgver=0.2.0
 pkgrel=1
 pkgdesc="One UI style photo gallery for KDE Plasma"
 arch=('any')
@@ -13,6 +13,7 @@ optdepends=(
     'python-pillow-heif: HEIC/HEIF photos (AUR)'
     'dolphin: "Show in folder" selects the file'
     'purpose: KDE share menu (KDE Connect, Bluetooth, e-mail, Imgur, ...)'
+    'plasma-integration: KDE global menu, native dialogs and theme'
 )
 source=()
 sha256sums=()

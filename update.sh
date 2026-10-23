@@ -6,6 +6,9 @@
 #   ./update.sh --install    also install the launcher if nothing is installed yet
 #   ./update.sh --restart    restart Gallery afterwards if it is running
 #
+# On Arch/Manjaro it installs the needed system packages (pacman's pyside6, ...) and runs
+# Gallery on the system Qt, which the KDE global menu needs.
+#
 # Your settings, library index, favorites and saved originals live outside this folder
 # (~/.config/lgallery, ~/.local/share/lgallery) and are never touched by an update.
 set -euo pipefail
@@ -20,7 +23,7 @@ for arg in "$@"; do
         --no-pull) pull=0 ;;
         --install) install=1 ;;
         --restart) restart=1 ;;
-        -h|--help) sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        -h|--help) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *) echo "Unknown option: $arg (see --help)" >&2; exit 2 ;;
     esac
 done
@@ -68,24 +71,70 @@ elif [[ -f "$user_launcher" ]]; then
 fi
 
 # ---- 3. python environment (source / user installs) -----------------------------------------
+# On Arch/Manjaro Gallery runs on the system Qt (pacman's pyside6): that is what makes the
+# KDE global menu, native KDE dialogs and theme work. Elsewhere it uses pip's PySide6.
+REQUIRED_PKGS=(python pyside6 python-pillow qt6-declarative qt6-svg qt6-imageformats)
+OPTIONAL_PKGS=(python-watchdog python-send2trash purpose plasma-integration xdg-utils)
+
+system_qt() { command -v pacman >/dev/null 2>&1; }
+
+install_system_packages() {
+    local missing=() p
+    for p in "${REQUIRED_PKGS[@]}"; do
+        pacman -Q "$p" >/dev/null 2>&1 || missing+=("$p")
+    done
+    for p in "${OPTIONAL_PKGS[@]}"; do
+        pacman -Q "$p" >/dev/null 2>&1 || { pacman -Si "$p" >/dev/null 2>&1 && missing+=("$p"); }
+    done
+    [[ ${#missing[@]} -eq 0 ]] && return
+    bold "Installing system packages (you may be asked for your password)"
+    info "${missing[*]}"
+    sudo pacman -S --needed --noconfirm "${missing[@]}" || fail "could not install: ${missing[*]}"
+}
+
+venv_ok() {
+    local py="$here/.venv/bin/python"
+    [[ -x "$py" ]] || return 1
+    "$py" -c 'import PySide6, PIL' >/dev/null 2>&1 || return 1
+    if system_qt; then
+        # must use pacman's PySide6 from /usr, not a pip copy inside .venv
+        grep -qi 'include-system-site-packages *= *true' "$here/.venv/pyvenv.cfg" 2>/dev/null || return 1
+        "$py" -c 'import PySide6, sys; sys.exit(0 if PySide6.__file__.startswith("/usr/") else 1)' \
+            >/dev/null 2>&1 || return 1
+    fi
+}
+
 ensure_venv() {
     local py="$here/.venv/bin/python"
-    if [[ -x "$py" ]] && "$py" -c 'import PySide6, PIL' >/dev/null 2>&1; then
-        if changed requirements.txt; then
+    if system_qt; then
+        install_system_packages
+    fi
+    if venv_ok; then
+        if ! system_qt && changed requirements.txt; then
             bold "Updating Python packages"
             "$py" -m pip install --quiet --disable-pip-version-check -r requirements.txt
         fi
         return
     fi
     bold "Setting up the Python environment (.venv)"
-    local system_site=""
-    if [[ -f "$here/.venv/pyvenv.cfg" ]] && grep -qi 'include-system-site-packages *= *true' "$here/.venv/pyvenv.cfg"; then
-        system_site="--system-site-packages"   # keep using pacman's pyside6 if that was the setup
+    if [[ -d "$here/.venv" ]]; then
+        if system_qt; then
+            info "Switching to Manjaro's PySide6 (system Qt): enables the KDE global menu."
+            info "The old .venv with pip's Qt (~1 GB) is removed."
+        else
+            info "The old .venv no longer works (Python was probably upgraded); recreating it."
+        fi
     fi
-    [[ -d "$here/.venv" ]] && info "The old .venv no longer works (Python was probably upgraded); recreating it."
     rm -rf "$here/.venv"
-    python3 -m venv $system_site "$here/.venv"
-    "$here/.venv/bin/python" -m pip install --quiet --disable-pip-version-check -r requirements.txt
+    if system_qt; then
+        python3 -m venv --system-site-packages "$here/.venv"
+        # HEIC support is not packaged in the official repos; get it from PyPI (optional)
+        "$py" -m pip install --quiet --disable-pip-version-check pillow-heif \
+            || info "pillow-heif could not be installed: HEIC photos will be skipped."
+    else
+        python3 -m venv "$here/.venv"
+        "$py" -m pip install --quiet --disable-pip-version-check -r requirements.txt
+    fi
 }
 
 check_imports() {

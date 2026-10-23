@@ -5,6 +5,7 @@ import QtQuick.Window
 import QtCore
 import "."
 import "components"
+import "menu"
 
 ApplicationWindow {
     id: root
@@ -26,10 +27,15 @@ ApplicationWindow {
     readonly property real navInset: Theme.navHeight + Theme.s5 * 2
     readonly property var currentGrid: stack.currentItem && stack.currentItem.grid ? stack.currentItem.grid : null
     readonly property bool dialogOpen: confirmDialog.opened || openWithPopup.opened || shareMenu.opened
+                                       || shortcutsDialog.opened || aboutDialog.opened || appPopup.opened
     readonly property bool editing: editorPage.visible
     // started by "Open with Gallery": closing the viewer quits instead of showing the library
     property bool standalone: launchedWithFiles
     property string externalFocus: ""
+    property var tabsItem: null
+    readonly property int currentTab: tabsItem ? tabsItem.current : 0
+    readonly property bool canGoBack: editorPage.visible || viewer.visible
+                                      || (currentGrid !== null && currentGrid.selectMode) || stack.depth > 1
 
     // ---- API used by the views (via ApplicationWindow.window) -----------------------
     function openViewer(grid, index) { viewer.open(grid, index) }
@@ -38,6 +44,22 @@ ApplicationWindow {
         if (root.visibility === Window.Minimized) root.showNormal()
         root.raise()
         root.requestActivate()
+    }
+    function goTab(index) {
+        if (editorPage.visible) return
+        if (viewer.visible) viewer.close()
+        if (stack.depth > 1) stack.pop(null)
+        if (tabsItem) tabsItem.current = index
+    }
+    function toggleFullScreen() {
+        if (root.visibility === Window.FullScreen) root.showNormal()
+        else root.showFullScreen()
+    }
+    function openPictureDialog() { openPicture.open() }
+    function showShortcuts() { shortcutsDialog.open() }
+    function showAbout() { aboutDialog.open() }
+    function openAppMenu(anchor) {
+        appPopup.popup(anchor, anchor.width - appPopup.implicitWidth, anchor.height)
     }
     function showLibrary() {
         // "Open Gallery" from a picture that was opened from the file manager
@@ -104,6 +126,7 @@ ApplicationWindow {
             id: tabs
             property int current: 0
             readonly property var grid: current === 0 ? pictures : null
+            Component.onCompleted: root.tabsItem = tabs
 
             component Tab: Item {
                 property int tabIndex
@@ -205,6 +228,46 @@ ApplicationWindow {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
         anchors.bottomMargin: root.navInset + Theme.s3
+    }
+
+    // ---- application menu: KDE global menu + the in-app ⋮ menu ----------------------------
+    AppMenuModel {
+        id: appMenu
+        win: root
+        viewer: viewer
+        editorPage: editorPage
+    }
+    // only where a global menu is running (otherwise Qt has no native menu bar to fill)
+    Loader {
+        active: gallery.globalMenuAvailable
+        sourceComponent: Component { GlobalMenuBar { specs: appMenu.menus; window: root } }
+    }
+    AppPopupMenu { id: appPopup; specs: appMenu.menus }
+    ShortcutsDialog { id: shortcutsDialog }
+    AboutDialog { id: aboutDialog }
+
+    FileDialog {
+        id: openPicture
+        title: qsTr("Open pictures")
+        fileMode: FileDialog.OpenFiles
+        currentFolder: StandardPaths.writableLocation(StandardPaths.PicturesLocation)
+        nameFilters: [qsTr("Pictures (*.jpg *.jpeg *.png *.webp *.gif *.bmp *.tif *.tiff *.heic *.heif)"),
+                      qsTr("All files (*)")]
+        onAccepted: gallery.openFiles(selectedFiles.map(u => u.toString()))
+    }
+
+    // keep the Share submenu ready for the current selection
+    Connections {
+        target: root.currentGrid ? root.currentGrid.photoModel : null
+        function onSelectionChanged() {
+            const model = root.currentGrid.photoModel
+            if (model.selectionCount > 0) gallery.prepareShare(model.selectedPaths().slice(0, 20))
+        }
+    }
+
+    Component.onCompleted: {
+        appMenu.installShortcuts(root.contentItem)
+        gallery.refreshDefaultViewer()
     }
 
     ConfirmDialog { id: confirmDialog }

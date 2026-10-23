@@ -3,6 +3,7 @@
 import configparser
 import logging
 import os
+import sys
 
 from PySide6.QtCore import (
     Property, QFileSystemWatcher, QObject, QProcess, QProcessEnvironment, Qt, QTimer, QUrl,
@@ -11,7 +12,7 @@ from PySide6.QtCore import (
 from PySide6.QtGui import QGuiApplication
 
 from . import (
-    CACHE_DIR, CONFIG_PATH, DATA_DIR, DB_PATH, HEIF_SUPPORTED, actions, db, external, share, thumbs,
+    PROJECT_URL, __version__, CACHE_DIR, CONFIG_PATH, DATA_DIR, DB_PATH, HEIF_SUPPORTED, actions, db, external, share, thumbs,
 )
 from .models import AlbumModel, PhotoModel, format_size
 from .scanner import ScanThread, root_available
@@ -72,6 +73,8 @@ class Gallery(QObject):
         self._share_loading = False
         self._share_procs: set = set()
         settings.columnsChanged.connect(self._sync_columns)
+        settings.sortAscendingChanged.connect(self._sync_sort)
+        self._sync_sort()
 
         self._folders: list[dict] = []
         self._availability: dict[str, bool] = {}
@@ -282,6 +285,10 @@ class Gallery(QObject):
         self._reload_all()
         self._refresh_folders()
 
+    def _sync_sort(self):
+        for m in (self.photos, self.albumPhotos, self.searchPhotos):
+            m.set_ascending(self.settings.sortAscending)
+
     def _sync_columns(self):
         for m in self._grids:
             m.columns = self.settings.columns
@@ -445,6 +452,21 @@ class Gallery(QObject):
         proc.start(cmd[0], cmd[1:])
 
     @Property(bool, constant=True)
+    def globalMenuAvailable(self):
+        """True when a global menu (KDE Global Menu widget) is listening on D-Bus."""
+        if sys.platform != "linux" or os.environ.get("LGALLERY_NO_GLOBAL_MENU"):
+            return False
+        try:
+            from PySide6.QtDBus import QDBusConnection
+        except ImportError:
+            return False
+        bus = QDBusConnection.sessionBus()
+        if not bus.isConnected():
+            return False
+        reply = bus.interface().isServiceRegistered("com.canonical.AppMenu.Registrar")
+        return bool(reply.value()) if reply.isValid() else False
+
+    @Property(bool, constant=True)
     def shareAvailable(self):
         return self._share_available
 
@@ -492,6 +514,7 @@ class Gallery(QObject):
             self.activateRequested.emit()
             return
         focus = files[0]
+        self.settings.add_recent(files)
         self.externalPhotos.openExternal(focus, files if len(files) > 1 else [])
         self.externalOpenRequested.emit(focus)
 
@@ -542,6 +565,14 @@ class Gallery(QObject):
     @Property(str, notify=cacheSizeChanged)
     def cacheSize(self):
         return self._cache_size
+
+    @Property(str, constant=True)
+    def version(self):
+        return __version__
+
+    @Property(str, constant=True)
+    def projectUrl(self):
+        return PROJECT_URL
 
     @Property("QVariantMap", constant=True)
     def locations(self):
