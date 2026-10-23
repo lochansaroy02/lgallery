@@ -3,3 +3,5 @@ __pycache__/
 *.pyc
 samples/
 CLAUDE.md
+.smoke-home/
+ui-shots/

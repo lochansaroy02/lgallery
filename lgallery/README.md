@@ -13,42 +13,90 @@ LGallery is a desktop photo gallery for Arch-based Linux (Manjaro) on KDE Plasma
 
 ## Install on Arch / Manjaro
 
-### Option A: run from source in a virtual environment (recommended for development)
+There are two ways to install LGallery as a KDE app. Both add **Gallery** to the application launcher (under *Graphics*) with its own icon, so you can pin it to the panel or task manager like any other app.
 
-Arch's system Python is "externally managed", so use a venv:
+| | Option A: user install | Option B: Arch package |
+| --- | --- | --- |
+| Needs root | No | Yes (pacman) |
+| Runs from | your checkout folder (`.venv`) | `/usr/share/lgallery` |
+| Update | `git pull` | `git pull` + `makepkg -si` again |
+| Best for | trying it out, development | everyday use |
+
+### 1. Get the code
+
+```bash
+sudo pacman -S --needed git
+git clone https://github.com/lochansaroy02/lgallery.git
+cd lgallery
+```
+
+### Option A: user install (no root)
+
+**Step 1: install system libraries and the Python dependencies.** Arch's system Python is "externally managed", so the dependencies go into a virtual environment inside the project folder:
 
 ```bash
 sudo pacman -S --needed python qt6-declarative qt6-svg qt6-imageformats
-cd lgallery
 python -m venv .venv
 .venv/bin/pip install -r requirements.txt
-.venv/bin/python main.py
 ```
 
-To use the distro's Qt bindings instead of the pip wheels (smaller and matches your Plasma's Qt):
+<details>
+<summary>Alternative: use the distro's PySide6 instead of the pip wheels (smaller download, same Qt as Plasma)</summary>
 
 ```bash
 sudo pacman -S --needed pyside6 python-pillow python-watchdog python-send2trash
 python -m venv --system-site-packages .venv
-.venv/bin/pip install pillow-heif      # optional; or: yay -S python-pillow-heif
+.venv/bin/pip install pillow-heif      # optional HEIC support (or: yay -S python-pillow-heif)
+```
+</details>
+
+**Step 2: check that it runs.**
+
+```bash
 .venv/bin/python main.py
 ```
 
-To add "Gallery" to the KDE application launcher for this checkout:
+**Step 3: add it to the KDE launcher.**
 
 ```bash
-./packaging/install-user.sh            # installs ~/.local/bin/lgallery, the .desktop file and the icon
-./packaging/install-user.sh --uninstall
+./packaging/install-user.sh
 ```
 
-### Option B: build an Arch package
+This installs:
+
+| File | Purpose |
+| --- | --- |
+| `~/.local/bin/lgallery` | launcher script (runs `main.py` with the project's `.venv`) |
+| `~/.local/share/applications/lgallery.desktop` | the app menu entry |
+| `~/.local/share/icons/hicolor/scalable/apps/lgallery.svg` | the icon |
+
+Open the application launcher and search for **Gallery**. If it doesn't show up right away, run `kbuildsycoca6` or log out and back in. You can also start it from a terminal with `~/.local/bin/lgallery` (or just `lgallery` if `~/.local/bin` is on your `PATH`).
+
+> The launcher points to this folder. If you move or rename the project folder, run `./packaging/install-user.sh` again.
+
+**Update:** `git pull`, then `.venv/bin/pip install -r requirements.txt` if the requirements changed.
+**Uninstall:** `./packaging/install-user.sh --uninstall`
+
+### Option B: system-wide Arch package
+
+This builds a real pacman package from your checkout, using the distro's Python packages (no venv):
 
 ```bash
+sudo pacman -S --needed base-devel pyside6 python-pillow qt6-declarative qt6-svg qt6-imageformats
+sudo pacman -S --needed python-watchdog python-send2trash   # optional: live updates, trash
 cd packaging
 makepkg -si
 ```
 
-This installs `/usr/bin/lgallery`, `/usr/share/applications/lgallery.desktop` and the icon. Optional extras are `python-watchdog`, `python-send2trash` and `python-pillow-heif` (AUR).
+This installs `/usr/bin/lgallery`, `/usr/share/lgallery/`, `/usr/share/applications/lgallery.desktop` and the icon. **Gallery** then appears in the launcher for all users. HEIC support is optional: `yay -S python-pillow-heif`.
+
+**Update:** `git pull`, then `cd packaging && makepkg -sif`.
+**Uninstall:** `sudo pacman -R lgallery`
+
+### After installing (optional)
+
+- **Pin to the panel:** start Gallery, right-click its icon in the task manager, and choose **Pin to Task Manager**.
+- **Your data survives reinstalls:** uninstalling either way leaves your settings, index and thumbnail cache in place (see [Where data lives](#where-data-lives)). Delete those folders for a clean slate.
 
 ## Using it
 
