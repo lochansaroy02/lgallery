@@ -126,7 +126,7 @@ Item {
         delegate: Item {
           required property var modelData
           width: list.width
-          height: 80
+          height: modelData.excludes.length > 0 ? 96 : 80
           Rectangle {
             x: Theme.pageMargin
             width: parent.width - 2 * Theme.pageMargin
@@ -154,7 +154,7 @@ Item {
             Column {
                 anchors.left: badge.right
                 anchors.leftMargin: Theme.s3
-                anchors.right: removeBtn.left
+                anchors.right: excludeBtn.left
                 anchors.rightMargin: Theme.s2
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: 2
@@ -174,12 +174,33 @@ Item {
                     font.pixelSize: Theme.fontSmall
                 }
                 Text {
+                    visible: modelData.excludes.length > 0
+                    text: modelData.excludes.length === 1 ? qsTr("1 sub-folder excluded") : qsTr("%1 sub-folders excluded").arg(modelData.excludes.length)
+                    color: Theme.accent
+                    font.pixelSize: Theme.fontSmall
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: view.win.editExcludes(modelData.path, modelData.excludes)
+                    }
+                }
+                Text {
                     text: !modelData.available ? qsTr("Not available · drive not mounted. Items are kept.")
                         : modelData.count < 0 ? "…"
                         : qsTr("%1 pictures").arg(modelData.count.toLocaleString(Qt.locale(), "f", 0))
                     color: modelData.available ? Theme.textSecondary : Theme.danger
                     font.pixelSize: Theme.fontSmall
                 }
+            }
+            IconButton {
+                id: excludeBtn
+                anchors.right: removeBtn.left
+                anchors.verticalCenter: parent.verticalCenter
+                visible: modelData.available
+                icon: "folderMinus"
+                color: Theme.textSecondary
+                tip: qsTr("Exclude sub-folders…")
+                onClicked: view.win.editExcludes(modelData.path, modelData.excludes)
             }
             IconButton {
                 id: removeBtn

@@ -12,7 +12,7 @@ from . import CONFIG_PATH
 log = logging.getLogger(__name__)
 
 DEFAULTS = {
-    "folders": [],            # [{"path": "/abs/path", "mount": "/mount/point"}]
+    "folders": [],            # [{"path": "/abs/path", "mount": "/mount/point", "exclude": [...]}]
     "theme": "system",        # system | light | dark
     "accent": "system",       # system (KDE accent colour) | "#rrggbb"
     "min_size_kb": 20,
@@ -103,8 +103,11 @@ class Settings(QObject):
         path = os.path.normpath(os.path.abspath(os.path.expanduser(path)))
         if not os.path.isdir(path):
             return f"{path} is not a folder", []
-        for existing in self.folder_paths():
-            if _is_within(path, existing):
+        for entry in self._data["folders"]:
+            existing = entry["path"]
+            # a folder inside an excluded sub-folder of another watched folder is allowed
+            if _is_within(path, existing) and not any(
+                    _is_within(path, ex) for ex in entry.get("exclude", [])):
                 return f"Already included in {existing}", []
         children = [p for p in self.folder_paths() if _is_within(p, path)]
         folders = [f for f in self._data["folders"] if f["path"] not in children]
@@ -113,6 +116,28 @@ class Settings(QObject):
         self.save()
         self.foldersChanged.emit()
         return "", children
+
+    def excludes(self, root: str) -> list[str]:
+        for f in self._data["folders"]:
+            if f["path"] == root:
+                return list(f.get("exclude", []))
+        return []
+
+    def set_excludes(self, root: str, paths: list[str]) -> bool:
+        """Sub-folders of root that are not scanned. Nested entries are collapsed."""
+        clean = []
+        for p in sorted({os.path.normpath(p) for p in paths if p}):
+            if _is_within(p, root) and p != root and not any(_is_within(p, c) for c in clean):
+                clean.append(p)
+        for f in self._data["folders"]:
+            if f["path"] == root:
+                if f.get("exclude", []) == clean:
+                    return False
+                f["exclude"] = clean
+                self.save()
+                self.foldersChanged.emit()
+                return True
+        return False
 
     def remove_folder(self, path: str) -> bool:
         folders = [f for f in self._data["folders"] if f["path"] != path]

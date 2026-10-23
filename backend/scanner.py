@@ -149,6 +149,7 @@ def scan_root(entry, min_size_kb=20, should_stop=lambda: False, progress=None) -
         return stats
 
     exts = supported_exts()
+    excluded = {os.path.normpath(p) for p in entry.get("exclude", [])}
     min_bytes = max(0, min_size_kb) * 1024
     existing = {
         p: (m, s)
@@ -200,7 +201,7 @@ def scan_root(entry, min_size_kb=20, should_stop=lambda: False, progress=None) -
             for e in entries:
                 try:
                     if e.is_dir(follow_symlinks=False):
-                        if not should_skip_dir(e.name):
+                        if not should_skip_dir(e.name) and e.path not in excluded:
                             stack.append(e.path)
                         continue
                     if os.path.splitext(e.name)[1].lower() not in exts:

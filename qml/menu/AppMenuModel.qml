@@ -92,6 +92,13 @@ QtObject {
             text: qsTr("&File")
             MenuSpec { text: qsTr("Add Folder…"); shortcut: "Ctrl+O"; onTriggered: win.addFolder() }
             MenuSpec {
+                text: qsTr("Exclude Sub-folders")
+                submenu: true
+                enabled: gallery.folders.length > 0 && !app.editing
+                model: gallery.folders.map(f => ({ text: f.name + (f.excludes.length ? "  ·  " + f.excludes.length + " excluded" : ""), value: f }))
+                onPicked: (value) => { if (app.viewing) app.viewer.close(); win.editExcludes(value.path, value.excludes) }
+            }
+            MenuSpec {
                 text: qsTr("Open Picture…"); shortcut: "Ctrl+Shift+O"; bindKey: true
                 enabled: !app.editing
                 onTriggered: win.openPictureDialog()

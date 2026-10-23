@@ -39,7 +39,7 @@ ApplicationWindow {
     readonly property var currentGrid: stack.currentItem && stack.currentItem.grid ? stack.currentItem.grid : null
     readonly property bool dialogOpen: confirmDialog.opened || openWithPopup.opened || shareMenu.opened
                                        || shortcutsDialog.opened || aboutDialog.opened || appPopup.opened
-                                       || nameDialog.opened || mergeDialog.opened
+                                       || nameDialog.opened || mergeDialog.opened || excludeDialog.opened
     readonly property bool editing: editorPage.visible || storyPlayer.visible
     // started by "Open with Gallery": closing the viewer quits instead of showing the library
     property bool standalone: launchedWithFiles
@@ -70,6 +70,7 @@ ApplicationWindow {
     function openPictureDialog() { openPicture.open() }
     function showShortcuts() { shortcutsDialog.open() }
     function showAbout() { aboutDialog.open() }
+    function editExcludes(rootPath, excludes) { excludeDialog.openFor(rootPath, excludes || []) }
     function openAppMenu(anchor) {
         appPopup.popup(anchor, anchor.width - appPopup.implicitWidth, anchor.height)
     }
@@ -347,6 +348,7 @@ ApplicationWindow {
     AppPopupMenu { id: appPopup; specs: appMenu.menus }
     ShortcutsDialog { id: shortcutsDialog }
     NameDialog { id: nameDialog }
+    ExcludeFoldersDialog { id: excludeDialog }
     MergeDialog { id: mergeDialog }
     AboutDialog { id: aboutDialog }
 

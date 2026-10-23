@@ -84,6 +84,7 @@ class Gallery(QObject):
     cacheSizeChanged = Signal()
     toast = Signal(str)
     itemsRemoved = Signal()
+    subfoldersLoaded = Signal(str, "QVariantList")  # folder, [{path, name, count, hasChildren}]
     externalOpenRequested = Signal(str)   # a file opened from Dolphin / the command line
     activateRequested = Signal()          # second launch without files: raise the window
     defaultViewerChanged = Signal()
@@ -215,6 +216,7 @@ class Gallery(QObject):
                 "name": os.path.basename(e["path"]) or e["path"],
                 "mount": e.get("mount", "/"),
                 "available": self._availability[e["path"]],
+                "excludes": list(e.get("exclude", [])),
                 "count": -1,
             }
             for e in entries
@@ -279,6 +281,58 @@ class Gallery(QObject):
             self._refresh_folders()
 
         run_async(db.remove_root, path, on_done=done)
+
+    # ---- excluded sub-folders ----------------------------------------------------------------
+    @Slot(str, "QStringList")
+    def setExcludes(self, root, paths):
+        before = set(self.settings.excludes(root))
+        if not self.settings.set_excludes(root, list(paths)):
+            return
+        after = set(self.settings.excludes(root))
+        self._refresh_folders()
+        self._update_watcher()
+        self.rescan_roots({root})
+        added, removed = len(after - before), len(before - after)
+        parts = []
+        if added:
+            parts.append(f"Excluded {added} folder{'s' if added != 1 else ''}: their pictures leave the "
+                         "gallery (files are not touched)")
+        if removed:
+            parts.append(f"{removed} folder{'s' if removed != 1 else ''} included again")
+        self.toast.emit(". ".join(parts) if parts else "Excluded folders updated")
+
+    @Slot(str, str)
+    def requestSubfolders(self, folder, root):
+        """List folder's sub-folders with their indexed picture counts (async)."""
+        def work(folder, root):
+            from .scanner import should_skip_dir
+            try:
+                with os.scandir(folder) as it:
+                    dirs = sorted((e for e in it if e.is_dir(follow_symlinks=False)
+                                   and not should_skip_dir(e.name)), key=lambda e: e.name.casefold())
+            except OSError:
+                return []
+            counts = {}
+            for d, n in db.connect().execute(
+                    "SELECT dir, COUNT(*) FROM images WHERE root = ? GROUP BY dir", (root,)):
+                counts[d] = n
+            result = []
+            for e in dirs:
+                prefix = e.path + os.sep
+                total = sum(n for d, n in counts.items() if d == e.path or d.startswith(prefix))
+                try:
+                    with os.scandir(e.path) as it:
+                        has_children = any(c.is_dir(follow_symlinks=False) and not should_skip_dir(c.name)
+                                           for c in it)
+                except OSError:
+                    has_children = False
+                result.append({"path": e.path, "name": e.name, "count": total,
+                               "hasChildren": has_children})
+            return result
+
+        run_async(work, folder, root,
+                  on_done=lambda items: self.subfoldersLoaded.emit(folder, items),
+                  on_error=lambda _e: self.subfoldersLoaded.emit(folder, []))
 
     # ---- scanning --------------------------------------------------------------------
     @Slot()
@@ -366,7 +420,8 @@ class Gallery(QObject):
     def _update_watcher(self):
         if self.settings.liveUpdates:
             roots = [p for p, ok in self._availability.items() if ok]
-            failed = self._watcher.watch(roots)
+            excludes = {e["path"]: e.get("exclude", []) for e in self.settings.folder_entries()}
+            failed = self._watcher.watch(roots, excludes)
             if failed:
                 self.toast.emit("Live updates unavailable for some folders (inotify limit?)")
         else:

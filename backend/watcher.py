@@ -22,9 +22,10 @@ except ImportError:
 
 
 class _Handler(FileSystemEventHandler):
-    def __init__(self, root: str, emit):
+    def __init__(self, root: str, emit, excludes=()):
         super().__init__()
         self.root = root
+        self.excludes = tuple(e.rstrip(os.sep) + os.sep for e in excludes)
         # events may arrive with the resolved path (symlinks, /private on macOS)
         self.prefixes = {root.rstrip(os.sep), os.path.realpath(root).rstrip(os.sep)}
         self.emit = emit
@@ -40,6 +41,8 @@ class _Handler(FileSystemEventHandler):
                 break
         if rel is None:
             return path.rstrip(os.sep) in self.prefixes
+        if any((self.root.rstrip(os.sep) + os.sep + rel + os.sep).startswith(e) for e in self.excludes):
+            return False
         parts = rel.split(os.sep)
         if any(should_skip_dir(p) for p in parts[:-1]):
             return False
@@ -71,10 +74,12 @@ class FolderWatcher(QObject):
     def available(self) -> bool:
         return WATCHDOG_AVAILABLE
 
-    def watch(self, roots: list[str]) -> list[str]:
+    def watch(self, roots: list[str], excludes: dict | None = None) -> list[str]:
         """(Re)start watching roots. Returns the roots that could not be watched."""
+        excludes = excludes or {}
         roots_t = tuple(sorted(r for r in roots if os.path.isdir(r)))
-        if roots_t == self._roots and self._observer is not None:
+        key = (roots_t, tuple(tuple(excludes.get(r, ())) for r in roots_t))
+        if key == self._roots and self._observer is not None:
             return []
         self.stop()
         if not WATCHDOG_AVAILABLE or not roots_t:
@@ -83,7 +88,8 @@ class FolderWatcher(QObject):
         observer = Observer()
         for root in roots_t:
             try:
-                observer.schedule(_Handler(root, self.rootChanged.emit), root, recursive=True)
+                observer.schedule(_Handler(root, self.rootChanged.emit, excludes.get(root, ())),
+                                  root, recursive=True)
             except OSError as exc:  # e.g. inotify watch limit reached
                 log.warning("cannot watch %s: %s", root, exc)
                 failed.append(root)
@@ -94,7 +100,7 @@ class FolderWatcher(QObject):
             log.warning("file watcher failed to start: %s", exc)
             return list(roots_t)
         self._observer = observer
-        self._roots = roots_t
+        self._roots = key
         return failed
 
     def stop(self):

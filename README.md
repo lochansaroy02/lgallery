@@ -142,6 +142,12 @@ To stop using Gallery as the default, pick another app in Dolphin's **File Type 
 2. Scanning runs in the background, and pictures appear while it works. Later rescans only read files that changed.
 3. To add folders on other drives, mount the drive and add the folder. If the drive is unmounted later, its pictures stay in the gallery, greyed out with a ⚠ mark, and become available again when you remount it. The app checks for mounts every 10 seconds.
 4. To remove a folder, open the **Folders** tab and click ✕ on the folder. Its pictures disappear from the gallery, and the files are left untouched.
+5. To skip some sub-folders (for example `Screenshots` or a work folder), open the **Folders** tab, click the **folder-minus** button on a watched folder (or use **File ▸ Exclude Sub-folders**), then untick the sub-folders to skip.
+   - You can open folders to go deeper; the path at the top takes you back up.
+   - An unticked folder is skipped with everything inside it. Its pictures leave the gallery, and the files stay on disk.
+   - Live updates ignore excluded folders too.
+   - Tick a folder again to bring its pictures back.
+   - A folder inside an excluded area can still be added as its own watched folder.
 
 ### Collections: Stories, Places and People
 
