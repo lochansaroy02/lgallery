@@ -4,6 +4,10 @@ LGallery is a desktop photo gallery for Arch-based Linux (Manjaro) on KDE Plasma
 
 - **Pictures tab:** day headers that stay visible while you scroll ("Today", "Yesterday", "Fri, Oct 23"), a title that shrinks as you scroll, a fast-scroll handle with a month bubble, and **Ctrl + mouse wheel** or **Ctrl +/-** to change the number of columns.
 - **Albums tab:** one album per watched folder, or one per sub-folder (a setting), plus **Favorites**.
+- **Collections tab:**
+  - **Stories:** slideshows of pictures taken around today's date in earlier years.
+  - **Places:** pictures grouped by town and country, from GPS.
+  - **People:** on-device face grouping, with naming, merging and hiding.
 - **Folders tab:** add or remove watched folders and rescan. Removing a folder **never deletes files**.
 - **Selection mode:** right-click or long-press a picture, or tick a day header to select the whole day. Actions: Delete (to the trash), Share, Open with, Copy path, Show in folder.
 - **Share menu:** the same options as Dolphin's *Share* submenu: Copy to Clipboard, KDE Connect, Bluetooth, e-mail, Telegram, Imgur, Nextcloud, Google Drive and anything else your KDE has installed.
@@ -138,6 +142,30 @@ To stop using Gallery as the default, pick another app in Dolphin's **File Type 
 3. To add folders on other drives, mount the drive and add the folder. If the drive is unmounted later, its pictures stay in the gallery, greyed out with a ⚠ mark, and become available again when you remount it. The app checks for mounts every 10 seconds.
 4. To remove a folder, open the **Folders** tab and click ✕ on the folder. Its pictures disappear from the gallery, and the files are left untouched.
 
+### Collections: Stories, Places and People
+
+The **Collections** tab (third in the bottom bar, `Ctrl+3`) has three sections.
+
+**Stories.** Every day, Gallery looks for pictures you took **within 3 days of today's date in earlier years**: "1 year ago", "3 years ago", and so on. It prefers favorites, skips burst duplicates, and shows up to 24 pictures per story.
+- Click a story to play it full screen, with slow zoom-and-pan and crossfades.
+- Click the right side to go forward and the left side to go back.
+- Press and hold (or press Space) to pause, and Esc to close.
+- The 🖼 button opens the current picture in the viewer.
+- Stories are also in the menu under **Go ▸ Stories**.
+
+**Places.** Pictures with GPS in their EXIF data (most phones add it) are grouped by **town and country**.
+- The first time, click **Download** to fetch the GeoNames town list (3 MB, CC BY 4.0). After that, lookups work **offline**; nothing is sent anywhere per photo.
+- Photos taken more than 60 km from any town are labelled with the country.
+- **See all** lists every place by country, and each place opens as an album.
+
+**People.** Gallery groups pictures by face, like Google Photos, but **entirely on this computer**.
+- It's off until you click **Turn on** (or use **Settings → Collections**). The first time, it downloads two small open models from OpenCV's model zoo (YuNet and SFace, 38 MB in total, checksum-verified).
+- It then scans your library in the background; progress shows in the People section. New pictures are scanned automatically.
+- A person appears once their face is found in **at least 3 pictures**.
+- Open a person to **name** them (✏), combine two groups of the same person (**Same person as…**), or **hide** someone. Hidden people can be shown again from the People page (👁).
+- Only face boxes and face "fingerprints" (embeddings) are stored, in the index. **Settings → Collections → Delete face data** removes them all.
+- People needs OpenCV (`opencv-python-headless`), which `./update.sh` installs. For the Arch package, install `python-opencv`.
+
 ### Editing photos
 
 Open a picture and click the **pencil** (or press **E**).
@@ -203,7 +231,7 @@ Items enable themselves from context: a picture open in the viewer, a selection,
 | F5 | Rescan |
 | Ctrl+O | Add folder |
 | Ctrl+Shift+O | Open picture (without adding its folder) |
-| Ctrl+1 / Ctrl+2 / Ctrl+3 | Pictures / Albums / Folders |
+| Ctrl+1 / 2 / 3 / 4 | Pictures / Albums / Collections / Folders |
 | Ctrl+C / Ctrl+Shift+C | Copy picture / copy path |
 | Ctrl+L / Ctrl+R | Rotate left / right (saved; revert from ⋮) |
 | Ctrl+Shift+A | Deselect all |
@@ -227,6 +255,9 @@ Items enable themselves from context: a picture open in the viewer, a selection,
 | Index (SQLite) | `~/.local/share/lgallery/index.db` |
 | Thumbnail cache | `~/.cache/lgallery/thumbs/` (it is safe to delete, and Settings has a **Clear** button) |
 | Originals of edited photos | `~/.local/share/lgallery/originals/` (needed for **Revert to original**) |
+| Face models (People) | `~/.local/share/lgallery/models/` |
+| Town list (Places) | `~/.local/share/lgallery/geo/` |
+| Face thumbnails | `~/.cache/lgallery/faces/` |
 
 The paths follow `XDG_CONFIG_HOME`, `XDG_DATA_HOME` and `XDG_CACHE_HOME`. Setting `LGALLERY_HOME=/some/dir` puts all three under one directory, which is useful for testing. Set `LGALLERY_LOG=DEBUG` for verbose logs.
 
@@ -245,6 +276,7 @@ The paths follow `XDG_CONFIG_HOME`, `XDG_DATA_HOME` and `XDG_CACHE_HOME`. Settin
 .venv/bin/python tools/editor_smoke.py samples --out ui-shots  # editor: tabs, save as copy, save, revert
 .venv/bin/python tools/open_with_smoke.py samples --out ui-shots # open a file, browse its folder, hand-off
 .venv/bin/python tools/menu_smoke.py samples --out ui-shots     # every menu action in context
+.venv/bin/python tools/collections_smoke.py --faces DIR --out ui-shots  # stories, places, people
 ```
 
 `ui_smoke.py` uses a temporary `LGALLERY_HOME`, so your real index and settings are not touched.
@@ -261,6 +293,10 @@ backend/thumbs.py     async image providers: image://thumbs (disk-cached), image
 backend/settings.py   folder list + preferences (JSON)
 backend/actions.py    trash, open with, show in folder, clipboard
 backend/external.py   pictures opened from a file manager (folder browsing without indexing)
+backend/collections.py Collections tab: stories, places, people (background jobs)
+backend/stories.py    "on this day" memories
+backend/geo.py        offline place names (GeoNames)
+backend/faces.py      on-device face detection, recognition and grouping (OpenCV)
 backend/editor.py     photo editor: edit pipeline, preview provider, save / copy / revert
 backend/controller.py glue object exposed to QML as `gallery`
 backend/tasks.py      run work on the thread pool, get results on the GUI thread

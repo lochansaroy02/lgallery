@@ -316,8 +316,8 @@ def _refresh_row(path: str) -> None:
         w, h = im.size
     with db.connect() as conn:
         conn.execute(
-            "UPDATE images SET mtime = ?, size = ?, width = ?, height = ?, available = 1 "
-            "WHERE path = ?", (st.st_mtime, st.st_size, w, h, path))
+            "UPDATE images SET mtime = ?, size = ?, width = ?, height = ?, available = 1, "
+            "faces_ver = 0 WHERE path = ?", (st.st_mtime, st.st_size, w, h, path))
 
 
 def save_job(source: str, dest: str, params: dict, row: dict, overwrite: bool) -> str:
@@ -335,9 +335,12 @@ def save_job(source: str, dest: str, params: dict, row: dict, overwrite: bool) -
         _refresh_row(dest)
     elif row.get("root"):
         st = os.stat(dest)
+        meta = read_metadata(dest, st.st_mtime)
+        lat, lon = (meta.lat, meta.lon) if meta else (None, None)
         with db.connect() as conn:
             conn.execute(UPSERT, (dest, row["root"], os.path.dirname(dest), os.path.basename(dest),
-                                  row["taken"], st.st_mtime, st.st_size, out.width, out.height))
+                                  row["taken"], st.st_mtime, st.st_size, out.width, out.height,
+                                  lat, lon))
     return dest
 
 

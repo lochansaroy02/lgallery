@@ -141,7 +141,9 @@ class _Job(QRunnable):
             if response.cancelled:
                 response.finish(None, "cancelled")
                 return
-            if self.image_id < 0:  # opened from a file manager, not in the index
+            if self.provider.mode == "faces":  # id is a face id; the face module finds the file
+                found = ("", 1)
+            elif self.image_id < 0:  # opened from a file manager, not in the index
                 path = external.lookup(self.image_id)
                 found = (path, 1) if path else None
             else:
@@ -150,7 +152,10 @@ class _Job(QRunnable):
                 response.finish(None, "not in index")
                 return
             path, available = found
-            if self.provider.mode == "thumbs":
+            if self.provider.mode == "faces":
+                from .faces import face_thumbnail
+                image = _to_qimage(face_thumbnail(self.image_id))
+            elif self.provider.mode == "thumbs":
                 image = self._thumb(path)
             else:
                 w = self.width if self.width > 0 else FULL_DEFAULT

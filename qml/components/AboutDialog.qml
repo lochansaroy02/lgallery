@@ -48,6 +48,14 @@ Popup {
             color: Theme.text
             font.pixelSize: Theme.fontBody
         }
+        Text {
+            width: parent.width
+            horizontalAlignment: Text.AlignHCenter
+            wrapMode: Text.Wrap
+            text: qsTr("Place names: GeoNames (CC BY 4.0). Face models: OpenCV YuNet and SFace (Apache 2.0).")
+            color: Theme.textSecondary
+            font.pixelSize: Theme.fontTiny + 1
+        }
         Item { width: 1; height: Theme.s1 }
         Row {
             anchors.horizontalCenter: parent.horizontalCenter

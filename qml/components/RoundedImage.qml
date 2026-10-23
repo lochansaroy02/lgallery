@@ -25,9 +25,10 @@ Item {
     Shape {
         id: corners
         anchors.fill: parent
+        anchors.margins: -1   // overlap the edge so no anti-aliased seam shows
         visible: root.radius > 0
         preferredRendererType: Shape.CurveRenderer
-        readonly property real r: Math.min(root.radius, width / 2, height / 2)
+        readonly property real r: Math.min(root.radius + 1, width / 2, height / 2)
         ShapePath {
             strokeColor: "transparent"
             fillColor: root.maskColor

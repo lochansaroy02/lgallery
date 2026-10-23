@@ -9,11 +9,12 @@ Item {
     property var items: [
         { label: qsTr("Pictures"), icon: "pictures" },
         { label: qsTr("Albums"), icon: "albums" },
+        { label: qsTr("Collections"), icon: "collections" },
         { label: qsTr("Folders"), icon: "folder" }
     ]
     signal selected(int index)
 
-    readonly property real itemWidth: 104
+    readonly property real itemWidth: 100
     implicitWidth: items.length * itemWidth + 12
     implicitHeight: Theme.navHeight
 

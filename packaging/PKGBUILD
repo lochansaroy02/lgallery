@@ -14,6 +14,7 @@ optdepends=(
     'dolphin: "Show in folder" selects the file'
     'purpose: KDE share menu (KDE Connect, Bluetooth, e-mail, Imgur, ...)'
     'plasma-integration: KDE global menu, native dialogs and theme'
+    'python-opencv: People (on-device face grouping)'
 )
 source=()
 sha256sums=()

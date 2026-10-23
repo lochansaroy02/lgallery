@@ -99,7 +99,8 @@ def load_items(paths: list[str]) -> list[list]:
     for path, m in zip(paths, metas):
         if m is None:
             continue
-        st, (taken, w, h) = m
+        st, meta = m
+        taken, w, h = meta.taken, meta.width, meta.height
         iid, fav = known.get(path, (None, 0))
         if iid is None:
             iid = register(path)

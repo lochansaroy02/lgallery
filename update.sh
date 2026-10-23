@@ -104,12 +104,29 @@ venv_ok() {
     fi
 }
 
+# Optional Python extras from PyPI (binary wheels only, never a slow source build):
+#   pillow-heif             HEIC photos
+#   opencv-python-headless  People (on-device face grouping)
+ensure_optional_extras() {
+    local py="$here/.venv/bin/python" spec module package
+    for spec in "pillow_heif:pillow-heif" "cv2:opencv-python-headless"; do
+        module="${spec%%:*}"; package="${spec#*:}"
+        "$py" -c "import $module" >/dev/null 2>&1 && continue
+        info "Installing $package (optional)…"
+        "$py" -m pip install --quiet --disable-pip-version-check --only-binary :all: "$package" \
+            || info "$package could not be installed for this Python; $( [[ $module == cv2 ]] \
+                    && echo 'People needs it (try: sudo pacman -S python-opencv)' \
+                    || echo 'HEIC photos will be skipped')."
+    done
+}
+
 ensure_venv() {
     local py="$here/.venv/bin/python"
     if system_qt; then
         install_system_packages
     fi
     if venv_ok; then
+        ensure_optional_extras
         if ! system_qt && changed requirements.txt; then
             bold "Updating Python packages"
             "$py" -m pip install --quiet --disable-pip-version-check -r requirements.txt
@@ -128,13 +145,11 @@ ensure_venv() {
     rm -rf "$here/.venv"
     if system_qt; then
         python3 -m venv --system-site-packages "$here/.venv"
-        # HEIC support is not packaged in the official repos; get it from PyPI (optional)
-        "$py" -m pip install --quiet --disable-pip-version-check pillow-heif \
-            || info "pillow-heif could not be installed: HEIC photos will be skipped."
     else
         python3 -m venv "$here/.venv"
         "$py" -m pip install --quiet --disable-pip-version-check -r requirements.txt
     fi
+    ensure_optional_extras
 }
 
 check_imports() {

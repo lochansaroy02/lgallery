@@ -234,6 +234,48 @@ Item {
             }
 
             Group {
+                title: qsTr("Collections")
+                SettingRow {
+                    title: qsTr("People (face grouping)")
+                    subtitle: collections.peopleState === "unavailable"
+                              ? qsTr("Needs OpenCV: run ./update.sh")
+                              : qsTr("Recognises faces on this computer; nothing is uploaded")
+                    OneSwitch {
+                        enabled: collections.peopleState !== "unavailable"
+                        checked: prefs.facesEnabled
+                        onToggled: (c) => c ? collections.enablePeople() : collections.disablePeople(false)
+                    }
+                }
+                SettingRow {
+                    title: qsTr("Delete face data")
+                    subtitle: qsTr("Removes all detected faces, names and groups from the index")
+                    PillButton {
+                        compact: true
+                        kind: "tonal"
+                        text: qsTr("Delete")
+                        onClicked: ApplicationWindow.window.confirm(
+                            qsTr("Delete face data?"),
+                            qsTr("People, names and face groups are removed and face grouping is turned off. Your pictures are not touched."),
+                            qsTr("Delete"), function() { collections.disablePeople(true) })
+                    }
+                }
+                SettingRow {
+                    title: qsTr("Place names")
+                    subtitle: collections.placesState === "need-data"
+                              ? qsTr("Download the town list (3 MB, GeoNames) to name places")
+                              : collections.placesState === "ready" ? qsTr("Installed (GeoNames, CC BY 4.0)")
+                              : collections.placesState === "no-gps" ? qsTr("No pictures with a location yet") : "…"
+                    PillButton {
+                        compact: true
+                        kind: "tonal"
+                        visible: collections.placesState === "need-data"
+                        text: qsTr("Download")
+                        onClicked: collections.downloadPlaceNames()
+                    }
+                }
+            }
+
+            Group {
                 title: qsTr("Storage")
                 SettingRow {
                     title: qsTr("Thumbnail cache")

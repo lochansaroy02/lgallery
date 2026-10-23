@@ -3,6 +3,7 @@
 import logging
 import os
 import time
+from typing import NamedTuple
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 
@@ -22,16 +23,55 @@ TAG_DATETIME_ORIGINAL = 36867
 TAG_DATETIME_DIGITIZED = 36868
 TAG_DATETIME = 306
 TAG_ORIENTATION = 274
+GPS_IFD = 0x8825
 BATCH = 256
+META_VER = 2  # bump to make the GPS backfill re-read files indexed by older versions
 
-UPSERT = """
-INSERT INTO images (path, root, dir, name, taken, mtime, size, width, height, available)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+# A changed file gets its place and faces recomputed (place = NULL, faces_ver = 0).
+UPSERT = f"""
+INSERT INTO images (path, root, dir, name, taken, mtime, size, width, height, lat, lon,
+                    meta_ver, available)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, {META_VER}, 1)
 ON CONFLICT(path) DO UPDATE SET
     root = excluded.root, dir = excluded.dir, name = excluded.name,
     taken = excluded.taken, mtime = excluded.mtime, size = excluded.size,
-    width = excluded.width, height = excluded.height, available = 1
+    width = excluded.width, height = excluded.height, lat = excluded.lat, lon = excluded.lon,
+    meta_ver = {META_VER}, place = NULL, country = NULL, faces_ver = 0, available = 1
 """
+
+
+class Meta(NamedTuple):
+    taken: int
+    width: int
+    height: int
+    lat: float | None = None
+    lon: float | None = None
+
+
+def _gps_coord(values, ref) -> float | None:
+    try:
+        d, m, s = (float(v) for v in values)
+    except (TypeError, ValueError, ZeroDivisionError):
+        return None
+    value = d + m / 60 + s / 3600
+    if isinstance(ref, bytes):
+        ref = ref.decode("ascii", "ignore")
+    return -value if str(ref).strip().upper() in ("S", "W") else value
+
+
+def parse_gps(exif) -> tuple[float | None, float | None]:
+    try:
+        gps = exif.get_ifd(GPS_IFD)
+    except Exception:
+        return None, None
+    if not gps or 2 not in gps or 4 not in gps:
+        return None, None
+    lat, lon = _gps_coord(gps.get(2), gps.get(1, "N")), _gps_coord(gps.get(4), gps.get(3, "E"))
+    if lat is None or lon is None or not (-90 <= lat <= 90 and -180 <= lon <= 180):
+        return None, None
+    if abs(lat) < 1e-6 and abs(lon) < 1e-6:  # "0,0" written by some cameras without a fix
+        return None, None
+    return round(lat, 6), round(lon, 6)
 
 
 def should_skip_dir(name: str) -> bool:
@@ -66,12 +106,13 @@ def parse_exif_date(value) -> int | None:
     return None
 
 
-def read_metadata(path: str, mtime: float) -> tuple[int, int, int] | None:
-    """(taken, width, height), or None if the file is not a readable image."""
+def read_metadata(path: str, mtime: float) -> Meta | None:
+    """Meta(taken, width, height, lat, lon), or None if the file is not a readable image."""
     try:
         with Image.open(path) as im:
             width, height = im.size
             taken = None
+            lat = lon = None
             exif = im.getexif()
             if exif:
                 sub = exif.get_ifd(EXIF_IFD)
@@ -82,12 +123,13 @@ def read_metadata(path: str, mtime: float) -> tuple[int, int, int] | None:
                 )
                 if exif.get(TAG_ORIENTATION) in (5, 6, 7, 8):
                     width, height = height, width
+                lat, lon = parse_gps(exif)
     except (UnidentifiedImageError, Image.DecompressionBombError):
         return None
     except Exception as exc:  # permission denied, truncated header, I/O error
         log.debug("cannot read %s: %s", path, exc)
         return None
-    return (taken or int(mtime), width, height)
+    return Meta(taken or int(mtime), width, height, lat, lon)
 
 
 def _is_within(path: str, folder: str) -> bool:
@@ -134,8 +176,8 @@ def scan_root(entry, min_size_kb=20, should_stop=lambda: False, progress=None) -
                 stats["errors"] += 1
                 seen.discard(path)
                 continue
-            taken, w, h = meta
-            rows.append((path, root, dirpath, name, taken, mtime, size, w, h))
+            rows.append((path, root, dirpath, name, meta.taken, mtime, size,
+                         meta.width, meta.height, meta.lat, meta.lon))
             stats["updated" if path in existing else "added"] += 1
         with conn:
             conn.executemany(UPSERT, rows)

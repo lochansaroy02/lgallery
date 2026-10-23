@@ -19,6 +19,7 @@ DEFAULTS = {
     "live_updates": True,
     "sort_ascending": False,  # False = newest first
     "recent_files": [],       # pictures opened from outside the library
+    "faces_enabled": False,   # People: on-device face grouping (opt-in)
 }
 MAX_RECENT = 10
 
@@ -49,6 +50,7 @@ class Settings(QObject):
     liveUpdatesChanged = Signal()
     sortAscendingChanged = Signal()
     recentFilesChanged = Signal()
+    facesEnabledChanged = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -170,6 +172,14 @@ class Settings(QObject):
         self._set("sort_ascending", bool(value), self.sortAscendingChanged)
 
     sortAscending = Property(bool, _get_sort, _set_sort, notify=sortAscendingChanged)
+
+    def _get_faces(self):
+        return bool(self._data["faces_enabled"])
+
+    def _set_faces(self, value):
+        self._set("faces_enabled", bool(value), self.facesEnabledChanged)
+
+    facesEnabled = Property(bool, _get_faces, _set_faces, notify=facesEnabledChanged)
 
     @Property("QStringList", notify=recentFilesChanged)
     def recentFiles(self):

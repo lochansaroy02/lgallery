@@ -19,10 +19,12 @@ Item {
     property Component emptyState: null
     property real bottomInset: 0
     property bool selectMode: false
+    property var extraActions: []          // [{id, icon, tip}] shown in the header
     readonly property alias view: list
     signal backRequested()
     signal searchRequested()
     signal settingsRequested()
+    signal extraAction(string id)
 
     readonly property int columns: Math.max(1, photoModel.columns)
     readonly property real cellSize: Math.max(24, Math.floor((list.width - Theme.gridGap * (columns - 1)) / columns))
@@ -118,6 +120,15 @@ Item {
                    ? Theme.accent : Theme.text
             onClicked: grid.photoModel.selectionCount === grid.photoModel.itemCount
                        ? grid.photoModel.clearSelection() : grid.photoModel.selectAll()
+        }
+        Repeater {
+            model: grid.selectMode ? [] : grid.extraActions
+            delegate: IconButton {
+                required property var modelData
+                icon: modelData.icon
+                tip: modelData.tip
+                onClicked: grid.extraAction(modelData.id)
+            }
         }
         IconButton {
             visible: !grid.selectMode && grid.photoModel.itemCount > 0

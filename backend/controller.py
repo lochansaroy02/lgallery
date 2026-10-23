@@ -54,6 +54,7 @@ class Gallery(QObject):
     activateRequested = Signal()          # second launch without files: raise the window
     defaultViewerChanged = Signal()
     shareTargetsChanged = Signal()
+    libraryReloaded = Signal()
 
     def __init__(self, settings: Settings, parent=None):
         super().__init__(parent)
@@ -278,6 +279,7 @@ class Gallery(QObject):
     def _reload_all(self):
         self._reload_grids()
         self.albums.reload()
+        self.libraryReloaded.emit()
 
     @Slot()
     def reloadLibrary(self):

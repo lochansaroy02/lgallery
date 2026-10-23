@@ -19,6 +19,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
 from backend import db, external  # noqa: E402
+from backend.collections import Collections  # noqa: E402
 from backend.controller import Gallery  # noqa: E402
 from backend.editor import EditImageProvider, Editor  # noqa: E402
 from backend.settings import Settings  # noqa: E402
@@ -123,6 +124,7 @@ def create_app(argv=None, files=None):
     db.init()
     settings = Settings(app)
     gallery = Gallery(settings, app)
+    collections = Collections(gallery, settings, app)
     editor = Editor(app)
     editor.libraryChanged.connect(gallery.reloadLibrary)
     editor.message.connect(gallery.toast)
@@ -130,6 +132,7 @@ def create_app(argv=None, files=None):
     engine = QQmlApplicationEngine()
     engine.addImageProvider("thumbs", ImageProvider("thumbs"))
     engine.addImageProvider("full", ImageProvider("full", threads=2))
+    engine.addImageProvider("faces", ImageProvider("faces", threads=2))
     engine.addImageProvider("icon", ThemeIconProvider())
     engine.addImageProvider("edit", EditImageProvider(editor))
 
@@ -143,11 +146,13 @@ def create_app(argv=None, files=None):
     ctx.setContextProperty("externalPhotos", gallery.externalPhotos)
     ctx.setContextProperty("launchedWithFiles", bool(files))
     ctx.setContextProperty("editor", editor)
+    ctx.setContextProperty("collections", collections)
 
     engine.load(QUrl.fromLocalFile(str(HERE / "qml" / "Main.qml")))
     if not engine.rootObjects():
         raise SystemExit("Failed to load the QML user interface (see errors above).")
     app.aboutToQuit.connect(gallery.shutdown)
+    app.aboutToQuit.connect(collections.shutdown)
     if files:
         gallery.openFiles(files)
     return app, engine, gallery

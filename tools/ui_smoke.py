@@ -125,7 +125,7 @@ pump(800)
 
 js("stack.currentItem.current = 1")
 shot("09-albums", 2000)
-js("stack.currentItem.current = 2")
+js("stack.currentItem.current = 3")
 shot("10-folders", 1200)
 js("stack.currentItem.current = 0")
 

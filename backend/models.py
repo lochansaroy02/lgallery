@@ -58,6 +58,11 @@ def build_filter(kind: str, value: str) -> tuple[str, list]:
         return "dir = ?", [value]
     if kind == "favorites":
         return "favorite = 1", []
+    if kind == "person":
+        return "id IN (SELECT image_id FROM faces WHERE person_id = ?)", [int(value or 0)]
+    if kind == "place":
+        place, _, country = value.partition("\t")
+        return "place = ? AND IFNULL(country, '') = ?", [place, country]
     if kind == "search":
         clauses, params = [], []
         months = _month_names()

@@ -24,7 +24,36 @@ CREATE INDEX IF NOT EXISTS idx_images_taken ON images(taken DESC);
 CREATE INDEX IF NOT EXISTS idx_images_root ON images(root);
 CREATE INDEX IF NOT EXISTS idx_images_dir ON images(dir);
 CREATE INDEX IF NOT EXISTS idx_images_fav ON images(favorite) WHERE favorite = 1;
+
+CREATE TABLE IF NOT EXISTS persons (
+    id         INTEGER PRIMARY KEY,
+    name       TEXT NOT NULL DEFAULT '',
+    hidden     INTEGER NOT NULL DEFAULT 0,
+    centroid   BLOB,                     -- mean face embedding (float32)
+    cover_face INTEGER,
+    count      INTEGER NOT NULL DEFAULT 0  -- pictures with this person
+);
+CREATE TABLE IF NOT EXISTS faces (
+    id        INTEGER PRIMARY KEY,
+    image_id  INTEGER NOT NULL REFERENCES images(id) ON DELETE CASCADE,
+    x REAL, y REAL, w REAL, h REAL,      -- normalised box in the upright picture
+    score     REAL NOT NULL,
+    embedding BLOB NOT NULL,             -- 128 x float32, L2-normalised
+    person_id INTEGER REFERENCES persons(id) ON DELETE SET NULL
+);
+CREATE INDEX IF NOT EXISTS idx_faces_image ON faces(image_id);
+CREATE INDEX IF NOT EXISTS idx_faces_person ON faces(person_id);
 """
+
+# columns added after the first release (migrated in place)
+MIGRATIONS = [
+    ("lat", "REAL"),
+    ("lon", "REAL"),
+    ("place", "TEXT"),                               # nearest town / city
+    ("country", "TEXT"),
+    ("meta_ver", "INTEGER NOT NULL DEFAULT 0"),     # which metadata (GPS...) has been read
+    ("faces_ver", "INTEGER NOT NULL DEFAULT 0"),    # face detection done with this version
+]
 
 _local = threading.local()
 
@@ -38,6 +67,7 @@ def connect() -> sqlite3.Connection:
         conn.execute("PRAGMA journal_mode=WAL")
         conn.execute("PRAGMA synchronous=NORMAL")
         conn.execute("PRAGMA busy_timeout=30000")
+        conn.execute("PRAGMA foreign_keys=ON")
         _local.conn = conn
         _local.path = DB_PATH
     return conn
@@ -46,6 +76,11 @@ def connect() -> sqlite3.Connection:
 def init() -> None:
     conn = connect()
     conn.executescript(SCHEMA)
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(images)")}
+    for name, decl in MIGRATIONS:
+        if name not in columns:
+            conn.execute(f"ALTER TABLE images ADD COLUMN {name} {decl}")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_images_place ON images(country, place)")
     conn.commit()
 
 

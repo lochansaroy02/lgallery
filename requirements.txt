@@ -3,3 +3,4 @@ Pillow>=10.0
 pillow-heif>=0.16    # optional: HEIC/HEIF support
 watchdog>=4.0        # optional: live updates
 send2trash>=1.8      # optional: falls back to built-in freedesktop trash
+opencv-python-headless>=4.8   # optional: People (on-device face grouping)

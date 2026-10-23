@@ -28,7 +28,8 @@ ApplicationWindow {
     readonly property var currentGrid: stack.currentItem && stack.currentItem.grid ? stack.currentItem.grid : null
     readonly property bool dialogOpen: confirmDialog.opened || openWithPopup.opened || shareMenu.opened
                                        || shortcutsDialog.opened || aboutDialog.opened || appPopup.opened
-    readonly property bool editing: editorPage.visible
+                                       || nameDialog.opened || mergeDialog.opened
+    readonly property bool editing: editorPage.visible || storyPlayer.visible
     // started by "Open with Gallery": closing the viewer quits instead of showing the library
     property bool standalone: launchedWithFiles
     property string externalFocus: ""
@@ -86,6 +87,32 @@ ApplicationWindow {
         albumPhotos.setFilter(kind, key)
         stack.push(albumPage, { title: title })
     }
+    function openPerson(personId, name) {
+        if (stack.currentItem && stack.currentItem.personId !== undefined && stack.currentItem.personId >= 0)
+            stack.pop()
+        albumPhotos.setFilter("person", String(personId))
+        stack.push(albumPage, { title: name || qsTr("Add a name"), personId: personId })
+    }
+    function openPlace(key, name) {
+        albumPhotos.setFilter("place", key)
+        stack.push(albumPage, { title: name })
+    }
+    function openPeople() { stack.push(peoplePage) }
+    function openPlaces() { stack.push(placesPage) }
+    function playStory(story) { storyPlayer.play(story) }
+    // show a library picture in the viewer (from a story)
+    function openLibraryPicture(path) {
+        goTab(0)
+        Qt.callLater(function() {
+            var index = photos.indexOfPath(path)
+            if (index >= 0 && root.currentGrid) {
+                root.currentGrid.ensureVisible(index)
+                viewer.open(root.currentGrid, index)
+            } else {
+                gallery.openFiles([path])
+            }
+        })
+    }
     function openSearch() {
         if (!(stack.currentItem && stack.currentItem.isSearch)) stack.push(searchPage)
     }
@@ -93,7 +120,8 @@ ApplicationWindow {
         if (!(stack.currentItem && stack.currentItem.isSettings)) stack.push(settingsPage)
     }
     function goBack() {
-        if (editorPage.visible) editorPage.requestClose()
+        if (storyPlayer.visible) storyPlayer.close()
+        else if (editorPage.visible) editorPage.requestClose()
         else if (viewer.visible) viewer.close()
         else if (currentGrid && currentGrid.selectMode) currentGrid.exitSelection()
         else if (stack.depth > 1) stack.pop()
@@ -159,6 +187,18 @@ ApplicationWindow {
             }
             Tab {
                 tabIndex: 2
+                CollectionsView {
+                    anchors.fill: parent
+                    bottomInset: root.navInset
+                    onPlayStory: (story) => root.playStory(story)
+                    onOpenPeople: root.openPeople()
+                    onOpenPlaces: root.openPlaces()
+                    onOpenPerson: (personId, name) => root.openPerson(personId, name)
+                    onOpenPlace: (key, name) => root.openPlace(key, name)
+                }
+            }
+            Tab {
+                tabIndex: 3
                 FoldersView {
                     anchors.fill: parent
                     bottomInset: root.navInset
@@ -182,11 +222,40 @@ ApplicationWindow {
         PhotoGrid {
             id: albumGrid
             readonly property var grid: albumGrid
+            property int personId: -1
+            readonly property bool personHidden: collections.hiddenPeople.some(p => p.id === personId)
             photoModel: albumPhotos
             showBack: true
             onBackRequested: stack.pop()
             onSearchRequested: root.openSearch()
             StackView.onRemoved: albumPhotos.setFilter("none", "")
+            extraActions: personId < 0 ? [] : [
+                { id: "name", icon: "edit", tip: qsTr("Name this person") },
+                { id: "merge", icon: "merge", tip: qsTr("Same person as…") },
+                personHidden ? { id: "unhide", icon: "eye", tip: qsTr("Show this person again") }
+                             : { id: "hide", icon: "eyeOff", tip: qsTr("Hide this person") }
+            ]
+            onExtraAction: (id) => {
+                const pid = albumGrid.personId
+                if (id === "name") {
+                    nameDialog.ask(collections.personName(pid), function(name) {
+                        collections.renamePerson(pid, name)
+                        albumGrid.title = name || qsTr("Add a name")
+                    })
+                } else if (id === "merge") {
+                    mergeDialog.ask(pid, function(target) {
+                        collections.mergePeople(pid, target)
+                        stack.pop()
+                        toast.show(qsTr("Pictures combined"))
+                    })
+                } else if (id === "hide") {
+                    collections.setPersonHidden(pid, true)
+                    stack.pop()
+                    toast.show(qsTr("Person hidden. Show hidden people from the People page."))
+                } else if (id === "unhide") {
+                    collections.setPersonHidden(pid, false)
+                }
+            }
         }
     }
 
@@ -198,6 +267,21 @@ ApplicationWindow {
             readonly property bool isSearch: true
             onBackRequested: stack.pop()
             StackView.onRemoved: searchPhotos.setFilter("none", "")
+        }
+    }
+
+    Component {
+        id: peoplePage
+        PeoplePage {
+            onBackRequested: stack.pop()
+            onOpenPerson: (personId, name) => root.openPerson(personId, name)
+        }
+    }
+    Component {
+        id: placesPage
+        PlacesPage {
+            onBackRequested: stack.pop()
+            onOpenPlace: (key, name) => root.openPlace(key, name)
         }
     }
 
@@ -222,6 +306,13 @@ ApplicationWindow {
         onFinished: (path) => viewer.follow(path)
     }
 
+    StoryPlayer {
+        id: storyPlayer
+        anchors.fill: parent
+        z: 120
+        onOpenPicture: (path) => root.openLibraryPicture(path)
+    }
+
     Toast {
         id: toast
         z: 200
@@ -244,6 +335,8 @@ ApplicationWindow {
     }
     AppPopupMenu { id: appPopup; specs: appMenu.menus }
     ShortcutsDialog { id: shortcutsDialog }
+    NameDialog { id: nameDialog }
+    MergeDialog { id: mergeDialog }
     AboutDialog { id: aboutDialog }
 
     FileDialog {

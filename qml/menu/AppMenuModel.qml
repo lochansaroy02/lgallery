@@ -222,9 +222,14 @@ QtObject {
                 onTriggered: win.goTab(1)
             }
             MenuSpec {
-                text: qsTr("Folders"); shortcut: "Ctrl+3"; bindKey: true
+                text: qsTr("Collections"); shortcut: "Ctrl+3"; bindKey: true
                 checkable: true; checked: win !== null && win.currentTab === 2
                 onTriggered: win.goTab(2)
+            }
+            MenuSpec {
+                text: qsTr("Folders"); shortcut: "Ctrl+4"; bindKey: true
+                checkable: true; checked: win !== null && win.currentTab === 3
+                onTriggered: win.goTab(3)
             }
             MenuSpec { separator: true }
             MenuSpec {
@@ -310,6 +315,23 @@ QtObject {
                 onPicked: (value) => { if (app.viewing) app.viewer.close(); win.openAlbum(value.kind, value.key, value.title) }
             }
             MenuSpec {
+                text: qsTr("Stories")
+                submenu: true
+                enabled: !app.editing && collections.stories.length > 0
+                model: collections.stories.map(st => ({ text: st.title + "  ·  " + st.subtitle, value: st }))
+                onPicked: (value) => { if (app.viewing) app.viewer.close(); win.playStory(value) }
+            }
+            MenuSpec {
+                text: qsTr("People")
+                enabled: !app.editing
+                onTriggered: { if (app.viewing) app.viewer.close(); win.goTab(2); win.openPeople() }
+            }
+            MenuSpec {
+                text: qsTr("Places")
+                enabled: !app.editing
+                onTriggered: { if (app.viewing) app.viewer.close(); win.goTab(2); win.openPlaces() }
+            }
+            MenuSpec {
                 text: qsTr("Favorites")
                 enabled: !app.editing
                 onTriggered: { if (app.viewing) app.viewer.close(); win.openAlbum("favorites", "", qsTr("Favorites")) }
@@ -332,6 +354,12 @@ QtObject {
                 text: gallery.defaultViewer === "default" ? qsTr("Gallery Is the Default Image Viewer") : qsTr("Set as Default Image Viewer")
                 enabled: gallery.defaultViewer === "other" || gallery.defaultViewer === "partial"
                 onTriggered: gallery.setAsDefaultViewer()
+            }
+            MenuSpec {
+                text: qsTr("Group Faces (People)")
+                checkable: true; checked: prefs.facesEnabled
+                enabled: collections.peopleState !== "unavailable"
+                onTriggered: prefs.facesEnabled ? collections.disablePeople(false) : collections.enablePeople()
             }
             MenuSpec { text: qsTr("Clear Thumbnail Cache"); onTriggered: gallery.clearThumbnailCache() }
         },
