@@ -5,3 +5,5 @@ samples/
 CLAUDE.md
 .smoke-home/
 ui-shots/
+.vscode/
+.DS_Store
