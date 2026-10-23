@@ -298,13 +298,14 @@ class FaceIndexThread(QThread):
             return
         conn = db.connect()
         total = conn.execute(
-            "SELECT COUNT(*) FROM images WHERE faces_ver < ? AND available = 1", (FACES_VER,)).fetchone()[0]
+            "SELECT COUNT(*) FROM images WHERE faces_ver < ? AND available = 1 AND video = 0",
+            (FACES_VER,)).fetchone()[0]
         done = 0
         self.progress.emit(0, total)
         since_cluster = 0
         while not self.isInterruptionRequested():
             batch = conn.execute(
-                "SELECT id, path FROM images WHERE faces_ver < ? AND available = 1 "
+                "SELECT id, path FROM images WHERE faces_ver < ? AND available = 1 AND video = 0 "
                 "ORDER BY taken DESC LIMIT 32", (FACES_VER,)).fetchall()
             if not batch:
                 break

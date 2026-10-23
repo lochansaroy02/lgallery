@@ -1,9 +1,10 @@
 # LGallery
 
-LGallery is a desktop photo gallery for Arch-based Linux (Manjaro) on KDE Plasma, styled after Samsung One UI's Gallery app. You choose the folders it shows, including folders on other drives. It indexes them in the background and lists your pictures newest first, grouped by day, the way a phone gallery does.
+LGallery is a desktop photo and video gallery for Arch-based Linux (Manjaro) on KDE Plasma, styled after Samsung One UI's Gallery app. You choose the folders it shows, including folders on other drives. It indexes them in the background and lists your pictures and videos newest first, grouped by day, the way a phone gallery does.
 
 - **Pictures tab:** day headers that stay visible while you scroll ("Today", "Yesterday", "Fri, Oct 23"), a title that shrinks as you scroll, a fast-scroll handle with a month bubble, and **Ctrl + mouse wheel** or **Ctrl +/-** to change the number of columns.
-- **Albums tab:** one album per watched folder, or one per sub-folder (a setting), plus **Favorites**.
+- **Videos:** videos sit among your pictures in date order, with a ▶ length badge. The **Videos tab** lists only videos. Opening a video plays it straight away, **muted**, with a mute button. **Play video** opens the built-in player with sound (see [Videos](#videos)).
+- **Albums tab:** one album per watched folder, or one per sub-folder (a setting), plus **Favorites** and **Videos**.
 - **Collections tab:**
   - **Stories:** slideshows of pictures taken around today's date in earlier years.
   - **Places:** pictures grouped by town and country, from GPS.
@@ -47,7 +48,7 @@ From the project folder, one command does everything:
 ```
 
 It:
-1. installs the system packages with pacman: `pyside6` (the system Qt bindings), `python-pillow`, `qt6-declarative`, `qt6-svg`, `qt6-imageformats` and, when available, `python-watchdog`, `python-send2trash`, `purpose`, `plasma-integration` and `xdg-utils`;
+1. installs the system packages with pacman: `pyside6` (the system Qt bindings), `python-pillow`, `qt6-declarative`, `qt6-svg`, `qt6-imageformats`, `qt6-multimedia`, `qt6-multimedia-ffmpeg` and `ffmpeg` (video playback and video thumbnails) and, when available, `python-watchdog`, `python-send2trash`, `purpose`, `plasma-integration` and `xdg-utils`;
 2. creates `.venv` on top of them (`--system-site-packages`) and adds `pillow-heif` from PyPI for HEIC photos;
 3. installs the launcher, menu entry and icon (`~/.local/bin/lgallery`, `~/.local/share/applications/lgallery.desktop`).
 
@@ -77,7 +78,8 @@ python3 -m venv .venv
 This builds a real pacman package from your checkout, using the distro's Python packages (no venv):
 
 ```bash
-sudo pacman -S --needed base-devel pyside6 python-pillow qt6-declarative qt6-svg qt6-imageformats
+sudo pacman -S --needed base-devel pyside6 python-pillow qt6-declarative qt6-svg qt6-imageformats \
+    qt6-multimedia qt6-multimedia-ffmpeg ffmpeg
 sudo pacman -S --needed python-watchdog python-send2trash   # optional: live updates, trash
 cd packaging
 makepkg -si
@@ -148,6 +150,21 @@ To stop using Gallery as the default, pick another app in Dolphin's **File Type 
    - Live updates ignore excluded folders too.
    - Tick a folder again to bring its pictures back.
    - A folder inside an excluded area can still be added as its own watched folder.
+
+### Videos
+
+- **Formats:** mp4, m4v, mov, mkv, webm, avi, 3gp, mts/m2ts, wmv, ogv, mpg/mpeg.
+- **Date:** the recording date stored in the video, otherwise the file's modification time. Videos are sorted with your photos by that date.
+- **Thumbnails and length:** made with `ffmpeg` / `ffprobe` (installed by `update.sh`). Without ffmpeg, MP4/MOV/3GP dates, sizes and lengths are still read from the file, and thumbnails show a placeholder. Real thumbnails appear once ffmpeg is installed.
+- **In the viewer:** a video starts playing on its own, muted and looping. The **🔇 button** (or **M**) turns the sound on or off. **Play video** (or **Enter**, or a double-click) opens the player and continues from the same moment. Back in the viewer, the preview continues from where the player stopped.
+- **The player:**
+  - seek bar with a time bubble while you drag or hover;
+  - play/pause, back and forward 10 seconds, volume slider, mute;
+  - playback speed from 0.25× to 2×, loop, full screen;
+  - controls hide while the video plays and come back when you move the mouse;
+  - when a codec isn't supported, the player says so and offers *Open in default app*.
+- **Playback** uses Qt Multimedia with its FFmpeg backend (`qt6-multimedia`, `qt6-multimedia-ffmpeg`). The file is played from disk as it is read, never loaded into memory. If Qt Multimedia is missing, the rest of Gallery still works, and videos open in your default player.
+- Videos are skipped by People (faces), Stories and the photo editor. They do count for Places when they carry GPS.
 
 ### Collections: Stories, Places and People
 
@@ -238,7 +255,7 @@ Items enable themselves from context: a picture open in the viewer, a selection,
 | F5 | Rescan |
 | Ctrl+O | Add folder |
 | Ctrl+Shift+O | Open picture (without adding its folder) |
-| Ctrl+1 / 2 / 3 / 4 | Pictures / Albums / Collections / Folders |
+| Ctrl+1 / 2 / 3 / 4 / 5 | Pictures / Videos / Albums / Collections / Folders |
 | Ctrl+C / Ctrl+Shift+C | Copy picture / copy path |
 | Ctrl+L / Ctrl+R | Rotate left / right (saved; revert from ⋮) |
 | Ctrl+Shift+A | Deselect all |
@@ -249,6 +266,9 @@ Items enable themselves from context: a picture open in the viewer, a selection,
 | Viewer: ← → Space Home End | Navigate |
 | Viewer: + − 0, wheel, double-click | Zoom |
 | Viewer: F / I / E | Favorite / Details / Edit |
+| Viewer, on a video: Enter / double-click, M | Play in the player with sound, mute/unmute the preview |
+| Player: Space or K, ← → (5 s), J L (10 s) | Play/pause, seek |
+| Player: ↑ ↓ or wheel, M, [ ], 0–9, F | Volume, mute, speed, jump to 0–90 %, full screen |
 | Viewer opened from Dolphin: Esc | Close (quits Gallery) |
 | Editor: Ctrl+Z / Ctrl+Shift+Z | Undo / Redo |
 | Editor: Ctrl+S / Ctrl+Shift+S | Save / Save as copy |
@@ -270,9 +290,9 @@ The paths follow `XDG_CONFIG_HOME`, `XDG_DATA_HOME` and `XDG_CACHE_HOME`. Settin
 
 ## What is scanned
 
-- Formats: jpg, jpeg, png, webp, gif, bmp, tif, tiff, plus heic/heif when `pillow-heif` is installed.
+- Formats: jpg, jpeg, png, webp, gif, bmp, tif, tiff, plus heic/heif when `pillow-heif` is installed, and the video formats listed under [Videos](#videos).
 - Skipped: hidden folders, `node_modules`, `.cache`, trash folders, `lost+found`, unreadable or corrupt files, and files smaller than the minimum size (20 KB by default, set in Settings).
-- Date taken: EXIF DateTimeOriginal, then DateTimeDigitized or DateTime, then the file's modification time.
+- Date taken: EXIF DateTimeOriginal, then DateTimeDigitized or DateTime, then the file's modification time. For videos, the recording date stored in the file, then the modification time.
 
 ## Testing and performance
 
@@ -284,7 +304,11 @@ The paths follow `XDG_CONFIG_HOME`, `XDG_DATA_HOME` and `XDG_CACHE_HOME`. Settin
 .venv/bin/python tools/open_with_smoke.py samples --out ui-shots # open a file, browse its folder, hand-off
 .venv/bin/python tools/menu_smoke.py samples --out ui-shots     # every menu action in context
 .venv/bin/python tools/collections_smoke.py --faces DIR --out ui-shots  # stories, places, people
+.venv/bin/python tools/video_smoke.py --out ui-shots      # videos: mixed timeline, Videos tab, preview, player (needs ffmpeg)
+.venv/bin/python tools/make_samples.py samples --count 5000 --videos 40   # also add sample videos (needs ffmpeg)
 ```
+
+With `QT_QPA_PLATFORM=offscreen`, Qt draws with its software renderer, which can't draw video frames. Screenshots then show the poster frame where the video plays. The checks (playing, muted, position, seeking) still run.
 
 `ui_smoke.py` uses a temporary `LGALLERY_HOME`, so your real index and settings are not touched.
 
@@ -294,6 +318,7 @@ The paths follow `XDG_CONFIG_HOME`, `XDG_DATA_HOME` and `XDG_CACHE_HOME`. Settin
 main.py               app entry: Qt setup, image providers, context objects
 backend/db.py         SQLite schema; one connection per thread
 backend/scanner.py    ScanThread: incremental, mount-aware folder walk + EXIF
+backend/video.py      video metadata (ffprobe or the MP4 header) and poster frames (ffmpeg)
 backend/watcher.py    watchdog (inotify) live updates
 backend/models.py     PhotoModel (rows of thumbnails + day sections), AlbumModel
 backend/thumbs.py     async image providers: image://thumbs (disk-cached), image://full
@@ -318,4 +343,4 @@ tests/                backend tests
 - **Share** uses KDE's sharing framework (*Purpose*, package `purpose`, normally installed with Dolphin). Because pip's PySide6 bundles its own Qt, Purpose runs in a small helper under the system Qt (`qml/share/ShareHelper.qml`, started with `/usr/lib/qt6/bin/qml` from `qt6-declarative`). Targets that need input (which KDE Connect device, which e-mail account, …) open a small KDE window. Uploads such as Imgur copy the resulting link to the clipboard. Without Purpose, the menu offers only *Copy to Clipboard*.
 - **Edit / Open with** lists the applications that declare support for the file's MIME type, read from their `.desktop` files.
 - **Show in folder** asks the file manager over D-Bus (`org.freedesktop.FileManager1`) to open the folder with the file selected. Dolphin supports this. Otherwise the parent folder is opened.
-- Videos are not indexed yet.
+- Video thumbnails come from a frame about one second in (or the first frame of very short clips).

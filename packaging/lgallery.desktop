@@ -10,5 +10,5 @@ Terminal=false
 Categories=Graphics;Viewer;Photography;Qt;KDE;
 Keywords=photos;pictures;images;gallery;albums;
 StartupWMClass=lgallery
-MimeType=image/jpeg;image/png;image/webp;image/gif;image/bmp;image/tiff;image/heic;image/heif;
+MimeType=image/jpeg;image/png;image/webp;image/gif;image/bmp;image/tiff;image/heic;image/heif;video/mp4;video/quicktime;video/x-matroska;video/webm;video/x-msvideo;video/3gpp;video/mpeg;video/ogg;
 StartupNotify=true

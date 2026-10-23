@@ -8,13 +8,15 @@ Item {
     property int currentIndex: 0
     property var items: [
         { label: qsTr("Pictures"), icon: "pictures" },
+        { label: qsTr("Videos"), icon: "video" },
         { label: qsTr("Albums"), icon: "albums" },
         { label: qsTr("Collections"), icon: "collections" },
         { label: qsTr("Folders"), icon: "folder" }
     ]
     signal selected(int index)
 
-    readonly property real itemWidth: 100
+    property real maxWidth: 100000      // narrow windows: the items shrink to fit
+    readonly property real itemWidth: Math.max(64, Math.min(100, (maxWidth - 12) / items.length))
     implicitWidth: items.length * itemWidth + 12
     implicitHeight: Theme.navHeight
 

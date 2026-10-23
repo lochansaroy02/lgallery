@@ -53,6 +53,8 @@ MIGRATIONS = [
     ("country", "TEXT"),
     ("meta_ver", "INTEGER NOT NULL DEFAULT 0"),     # which metadata (GPS...) has been read
     ("faces_ver", "INTEGER NOT NULL DEFAULT 0"),    # face detection done with this version
+    ("video", "INTEGER NOT NULL DEFAULT 0"),        # 1 = video file
+    ("duration", "REAL NOT NULL DEFAULT 0"),        # video length in seconds
 ]
 
 _local = threading.local()
@@ -81,6 +83,7 @@ def init() -> None:
         if name not in columns:
             conn.execute(f"ALTER TABLE images ADD COLUMN {name} {decl}")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_images_place ON images(country, place)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_images_video ON images(taken DESC) WHERE video = 1")
     conn.commit()
 
 

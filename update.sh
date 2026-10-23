@@ -73,7 +73,8 @@ fi
 # ---- 3. python environment (source / user installs) -----------------------------------------
 # On Arch/Manjaro Gallery runs on the system Qt (pacman's pyside6): that is what makes the
 # KDE global menu, native KDE dialogs and theme work. Elsewhere it uses pip's PySide6.
-REQUIRED_PKGS=(python pyside6 python-pillow qt6-declarative qt6-svg qt6-imageformats)
+REQUIRED_PKGS=(python pyside6 python-pillow qt6-declarative qt6-svg qt6-imageformats
+               qt6-multimedia qt6-multimedia-ffmpeg ffmpeg)
 OPTIONAL_PKGS=(python-watchdog python-send2trash purpose plasma-integration xdg-utils)
 
 system_qt() { command -v pacman >/dev/null 2>&1; }

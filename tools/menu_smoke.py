@@ -52,7 +52,7 @@ check("6 top-level menus", js("appMenu.menus.length") == 6)
 check("popup menu built with 6 submenus", js("appPopup.count") == 6)
 check("Edit Picture disabled without a picture", enabled("Edit", "Edit Picture…") is False)
 trig("View", "Albums"); pump(400)
-check("View > Albums switches tab", js("root.currentTab") == 1)
+check("View > Albums switches tab", js("root.currentTab") == 2)
 check("Albums checkmark follows", js(FIND+"(['View','Albums']).checked") is True)
 trig("View", "Pictures"); pump(400)
 first_desc = g.photos.itemAt(0)["path"]

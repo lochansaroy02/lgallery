@@ -12,7 +12,7 @@ from PySide6.QtCore import (
 from PySide6.QtGui import QGuiApplication, QPalette
 
 from . import (
-    PROJECT_URL, __version__, CACHE_DIR, CONFIG_PATH, DATA_DIR, DB_PATH, HEIF_SUPPORTED, actions, db, external, share, thumbs,
+    PROJECT_URL, __version__, CACHE_DIR, CONFIG_PATH, DATA_DIR, DB_PATH, FFMPEG, HEIF_SUPPORTED, actions, db, external, share, thumbs,
 )
 from .models import AlbumModel, PhotoModel, format_size
 from .scanner import ScanThread, root_available
@@ -98,9 +98,11 @@ class Gallery(QObject):
         self.photos = PhotoModel(cols, "all", parent=self)
         self.albumPhotos = PhotoModel(cols, "none", auto_load=False, parent=self)
         self.searchPhotos = PhotoModel(cols, "none", auto_load=False, parent=self)
+        self.videos = PhotoModel(cols, "videos", parent=self)
         self.albums = AlbumModel(settings, parent=self)
         self.externalPhotos = PhotoModel(cols, "none", auto_load=False, parent=self)
-        self._grids = (self.photos, self.albumPhotos, self.searchPhotos, self.externalPhotos)
+        self._grids = (self.photos, self.videos, self.albumPhotos, self.searchPhotos,
+                       self.externalPhotos)
         self._default_viewer = ""
         self._share_available = share.available()
         self._share_cache: dict[str, list] = {}
@@ -409,7 +411,7 @@ class Gallery(QObject):
         self._refresh_folders()
 
     def _sync_sort(self):
-        for m in (self.photos, self.albumPhotos, self.searchPhotos):
+        for m in (self.photos, self.videos, self.albumPhotos, self.searchPhotos):
             m.set_ascending(self.settings.sortAscending)
 
     def _sync_columns(self):
@@ -453,6 +455,11 @@ class Gallery(QObject):
     @Property(bool, constant=True)
     def heifSupported(self):
         return HEIF_SUPPORTED
+
+    @Property(bool, constant=True)
+    def videoThumbnailsSupported(self):
+        """ffmpeg is installed (video poster frames)."""
+        return bool(FFMPEG)
 
     def shutdown(self):
         self._watcher.stop()

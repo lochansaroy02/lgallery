@@ -18,7 +18,7 @@ from PySide6.QtQuick import (
     QQuickAsyncImageProvider, QQuickImageResponse, QQuickTextureFactory,
 )
 
-from . import THUMB_DIR, db, external
+from . import THUMB_DIR, db, external, is_video, video
 
 log = logging.getLogger(__name__)
 
@@ -49,11 +49,29 @@ def _to_qimage(im: Image.Image) -> QImage:
     return QImage(data, im.width, im.height, im.width * 3, QImage.Format_RGB888).copy()
 
 
+def _open_upright(path: str, width: int, height: int):
+    """(upright image decoded for about width x height, cacheable)."""
+    if is_video(path):
+        return video.poster(path, width, height)
+    im = Image.open(path)
+    try:
+        im.draft("RGB", (width, height))
+        upright = ImageOps.exif_transpose(im)
+        if upright is not im:
+            im.close()
+        return upright, True
+    except Exception:
+        im.close()
+        raise
+
+
 def make_thumbnail(path: str, out) -> Image.Image:
-    """Decode path into a thumbnail (short side THUMB_SHORT_SIDE) and cache it at out."""
-    with Image.open(path) as im:
-        im.draft("RGB", (THUMB_SHORT_SIDE, THUMB_SHORT_SIDE))
-        im = ImageOps.exif_transpose(im)
+    """Decode path into a thumbnail (short side THUMB_SHORT_SIDE) and cache it at out.
+
+    Videos use a poster frame; their placeholder (no ffmpeg) is never cached."""
+    edge = THUMB_SHORT_SIDE * 2 if is_video(path) else THUMB_SHORT_SIDE
+    im, cacheable = _open_upright(path, edge, edge)
+    with im:
         w, h = im.size
         # crop extreme panoramas around the centre; the grid shows squares anyway
         if w / h > MAX_ASPECT:
@@ -68,6 +86,8 @@ def make_thumbnail(path: str, out) -> Image.Image:
             im = im.resize((max(1, round(w * scale)), max(1, round(h * scale))),
                            Image.BICUBIC, reducing_gap=2.0)
         im = _flatten(im)
+    if not cacheable:
+        return im
     try:
         out.parent.mkdir(parents=True, exist_ok=True)
         tmp = out.with_suffix(".tmp%d" % os.getpid())
@@ -79,9 +99,8 @@ def make_thumbnail(path: str, out) -> Image.Image:
 
 
 def load_full(path: str, width: int, height: int) -> Image.Image:
-    with Image.open(path) as im:
-        im.draft("RGB", (width, height))
-        im = ImageOps.exif_transpose(im)
+    im, _cacheable = _open_upright(path, width, height)
+    with im:
         if im.width > width or im.height > height:
             im.thumbnail((width, height), Image.BICUBIC, reducing_gap=2.0)
         return _flatten(im)

@@ -23,7 +23,7 @@ Popup {
         { title: qsTr("Gallery"), keys: [
             ["Ctrl+O", qsTr("Add folder")], ["Ctrl+Shift+O", qsTr("Open picture")],
             ["Ctrl+F", qsTr("Search")], ["F5", qsTr("Rescan folders")],
-            ["Ctrl+1 / 2 / 3 / 4", qsTr("Pictures / Albums / Collections / Folders")],
+            ["Ctrl+1 / 2 / 3 / 4 / 5", qsTr("Pictures / Videos / Albums / Collections / Folders")],
             ["Ctrl + / Ctrl − / Ctrl+wheel", qsTr("Bigger / smaller thumbnails")],
             ["Ctrl+Home", qsTr("Today")], ["Ctrl+,", qsTr("Settings")], ["F11", qsTr("Full screen")],
             ["Ctrl+Q", qsTr("Quit")] ] },
@@ -37,7 +37,13 @@ Popup {
             ["← / → / Space", qsTr("Previous / next")], ["Home / End", qsTr("First / last")],
             ["+ / − / 0, wheel, double-click", qsTr("Zoom")], ["E", qsTr("Edit")], ["F", qsTr("Favorite")],
             ["I", qsTr("Details")], ["Ctrl+L / Ctrl+R", qsTr("Rotate left / right")],
-            ["Del", qsTr("Move to trash")], ["Esc", qsTr("Close")] ] },
+            ["Del", qsTr("Move to trash")], ["Esc", qsTr("Close")],
+            [qsTr("Enter / double-click"), qsTr("Play a video with sound")], ["M", qsTr("Mute / unmute the preview")] ] },
+        { title: qsTr("Video player"), keys: [
+            ["Space / K", qsTr("Play / pause")], ["← / →", qsTr("Back / forward 5 seconds")],
+            ["J / L", qsTr("Back / forward 10 seconds")], ["↑ / ↓, wheel", qsTr("Volume")],
+            ["M", qsTr("Mute")], ["[ / ]", qsTr("Slower / faster")], ["0 … 9", qsTr("Jump to 0 … 90 %")],
+            ["F, double-click", qsTr("Full screen")], ["Esc", qsTr("Close")] ] },
         { title: qsTr("Stories"), keys: [
             [qsTr("Click right / left side"), qsTr("Next / previous picture")], [qsTr("Press and hold"), qsTr("Pause")],
             ["← / →", qsTr("Previous / next")], ["Space", qsTr("Pause / play")], ["Esc", qsTr("Close")] ] },

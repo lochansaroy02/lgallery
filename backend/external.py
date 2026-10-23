@@ -104,5 +104,6 @@ def load_items(paths: list[str]) -> list[list]:
         iid, fav = known.get(path, (None, 0))
         if iid is None:
             iid = register(path)
-        items.append([iid, path, taken, st.st_mtime, w, h, st.st_size, 1, fav, _day_ordinal(taken)])
+        items.append([iid, path, taken, st.st_mtime, w, h, st.st_size, 1, fav,
+                      int(meta.video), meta.duration, _day_ordinal(taken)])
     return items

@@ -40,18 +40,36 @@ ApplicationWindow {
     readonly property bool dialogOpen: confirmDialog.opened || openWithPopup.opened || shareMenu.opened
                                        || shortcutsDialog.opened || aboutDialog.opened || appPopup.opened
                                        || nameDialog.opened || mergeDialog.opened || excludeDialog.opened
-    readonly property bool editing: editorPage.visible || storyPlayer.visible
+    readonly property var videoPlayer: videoPlayerLoader.item
+    readonly property bool playingVideo: videoPlayer !== null && videoPlayer.visible
+    readonly property bool editing: editorPage.visible || storyPlayer.visible || playingVideo
     // started by "Open with Gallery": closing the viewer quits instead of showing the library
     property bool standalone: launchedWithFiles
     property string externalFocus: ""
     property var tabsItem: null
     readonly property int currentTab: tabsItem ? tabsItem.current : 0
-    readonly property bool canGoBack: editorPage.visible || viewer.visible
+    readonly property bool canGoBack: editorPage.visible || viewer.visible || playingVideo
                                       || (currentGrid !== null && currentGrid.selectMode) || stack.depth > 1
 
     // ---- API used by the views (via ApplicationWindow.window) -----------------------
     function openViewer(grid, index) { viewer.open(grid, index) }
     function openEditor(info) { editorPage.open(info) }
+    // the built-in video player, continuing from the inline preview's position
+    function playVideo(info, startMs) {
+        if (!info || !info.path) return
+        if (videoPlayer === null) {   // Qt Multimedia missing
+            gallery.openExternally(info.path)
+            return
+        }
+        videoPlayer.open(info, startMs || 0)
+    }
+    // 75000 -> "1:15", 3723000 -> "1:02:03"
+    function formatTime(ms) {
+        var s = Math.max(0, Math.floor((ms || 0) / 1000))
+        var h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60
+        var mm = h > 0 && m < 10 ? "0" + m : "" + m
+        return (h > 0 ? h + ":" : "") + mm + ":" + (sec < 10 ? "0" : "") + sec
+    }
     function raiseWindow() {
         if (root.visibility === Window.Minimized) root.showNormal()
         root.raise()
@@ -59,6 +77,7 @@ ApplicationWindow {
     }
     function goTab(index) {
         if (editorPage.visible) return
+        if (playingVideo) videoPlayer.close()
         if (viewer.visible) viewer.close()
         if (stack.depth > 1) stack.pop(null)
         if (tabsItem) tabsItem.current = index
@@ -132,7 +151,8 @@ ApplicationWindow {
         if (!(stack.currentItem && stack.currentItem.isSettings)) stack.push(settingsPage)
     }
     function goBack() {
-        if (storyPlayer.visible) storyPlayer.close()
+        if (playingVideo) videoPlayer.dismiss()
+        else if (storyPlayer.visible) storyPlayer.close()
         else if (editorPage.visible) editorPage.requestClose()
         else if (viewer.visible) viewer.close()
         else if (currentGrid && currentGrid.selectMode) currentGrid.exitSelection()
@@ -165,7 +185,7 @@ ApplicationWindow {
         Item {
             id: tabs
             property int current: 0
-            readonly property var grid: current === 0 ? pictures : null
+            readonly property var grid: current === 0 ? pictures : current === 1 ? videosTab : null
             Component.onCompleted: root.tabsItem = tabs
 
             component Tab: Item {
@@ -189,6 +209,16 @@ ApplicationWindow {
             }
             Tab {
                 tabIndex: 1
+                VideosView {
+                    id: videosTab
+                    anchors.fill: parent
+                    bottomInset: root.navInset
+                    onSearchRequested: root.openSearch()
+                    onSettingsRequested: root.openSettings()
+                }
+            }
+            Tab {
+                tabIndex: 2
                 AlbumsView {
                     anchors.fill: parent
                     bottomInset: root.navInset
@@ -198,7 +228,7 @@ ApplicationWindow {
                 }
             }
             Tab {
-                tabIndex: 2
+                tabIndex: 3
                 CollectionsView {
                     anchors.fill: parent
                     bottomInset: root.navInset
@@ -210,7 +240,7 @@ ApplicationWindow {
                 }
             }
             Tab {
-                tabIndex: 3
+                tabIndex: 4
                 FoldersView {
                     anchors.fill: parent
                     bottomInset: root.navInset
@@ -223,6 +253,7 @@ ApplicationWindow {
                 anchors.bottom: parent.bottom
                 anchors.bottomMargin: tabs.grid && tabs.grid.selectMode ? -height - 20 : Theme.s5
                 Behavior on anchors.bottomMargin { NumberAnimation { duration: Theme.durNormal; easing.type: Theme.easing } }
+                maxWidth: tabs.width - 2 * Theme.s4
                 currentIndex: tabs.current
                 onSelected: (i) => tabs.current = i
             }
@@ -309,6 +340,23 @@ ApplicationWindow {
         id: viewer
         anchors.fill: parent
         z: 100
+        playerOpen: root.playingVideo
+    }
+
+    // separate file behind a Loader: without Qt Multimedia the rest of Gallery still works
+    Loader {
+        id: videoPlayerLoader
+        anchors.fill: parent
+        z: 110
+        source: "VideoPlayer.qml"
+        onStatusChanged: if (status === Loader.Error) console.warn("Video playback unavailable: install qt6-multimedia")
+    }
+    Connections {
+        target: root.videoPlayer
+        function onClosed(position) {
+            viewer.resumeAt = position
+            viewer.forceActiveFocus()
+        }
     }
 
     EditorPage {
@@ -363,7 +411,9 @@ ApplicationWindow {
         title: qsTr("Open pictures")
         fileMode: FileDialog.OpenFiles
         currentFolder: StandardPaths.writableLocation(StandardPaths.PicturesLocation)
-        nameFilters: [qsTr("Pictures (*.jpg *.jpeg *.png *.webp *.gif *.bmp *.tif *.tiff *.heic *.heif)"),
+        nameFilters: [qsTr("Pictures and videos (*.jpg *.jpeg *.png *.webp *.gif *.bmp *.tif *.tiff *.heic *.heif *.mp4 *.m4v *.mov *.mkv *.webm *.avi *.3gp *.mts *.m2ts *.wmv *.ogv *.mpg *.mpeg)"),
+                      qsTr("Pictures (*.jpg *.jpeg *.png *.webp *.gif *.bmp *.tif *.tiff *.heic *.heif)"),
+                      qsTr("Videos (*.mp4 *.m4v *.mov *.mkv *.webm *.avi *.3gp *.mts *.m2ts *.wmv *.ogv *.mpg *.mpeg)"),
                       qsTr("All files (*)")]
         onAccepted: gallery.openFiles(selectedFiles.map(u => u.toString()))
     }

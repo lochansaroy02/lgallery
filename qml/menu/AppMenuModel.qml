@@ -20,6 +20,7 @@ QtObject {
     readonly property bool hasContext: editing || (viewing && !!viewer.info.path) || selecting
     readonly property bool viewingLibraryPicture: viewing && viewer.info.external !== true
     readonly property bool canRotate: hasContext && !editing && !(viewing && viewer.info.available === false)
+                                      && !(viewing && viewer.info.video === true)
 
     function paths() {
         if (editing) return [editor.path]
@@ -193,6 +194,7 @@ QtObject {
             MenuSpec {
                 text: qsTr("Edit Picture…"); shortcut: "E"
                 enabled: app.viewing && app.viewer.info.available === true && app.viewer.info.animated !== true
+                         && app.viewer.info.video !== true
                 onTriggered: win.openEditor(app.viewer.info)
             }
             MenuSpec {
@@ -224,19 +226,24 @@ QtObject {
                 onTriggered: win.goTab(0)
             }
             MenuSpec {
-                text: qsTr("Albums"); shortcut: "Ctrl+2"; bindKey: true
+                text: qsTr("Videos"); shortcut: "Ctrl+2"; bindKey: true
                 checkable: true; checked: win !== null && win.currentTab === 1
                 onTriggered: win.goTab(1)
             }
             MenuSpec {
-                text: qsTr("Collections"); shortcut: "Ctrl+3"; bindKey: true
+                text: qsTr("Albums"); shortcut: "Ctrl+3"; bindKey: true
                 checkable: true; checked: win !== null && win.currentTab === 2
                 onTriggered: win.goTab(2)
             }
             MenuSpec {
-                text: qsTr("Folders"); shortcut: "Ctrl+4"; bindKey: true
+                text: qsTr("Collections"); shortcut: "Ctrl+4"; bindKey: true
                 checkable: true; checked: win !== null && win.currentTab === 3
                 onTriggered: win.goTab(3)
+            }
+            MenuSpec {
+                text: qsTr("Folders"); shortcut: "Ctrl+5"; bindKey: true
+                checkable: true; checked: win !== null && win.currentTab === 4
+                onTriggered: win.goTab(4)
             }
             MenuSpec { separator: true }
             MenuSpec {
@@ -275,6 +282,19 @@ QtObject {
                 onTriggered: prefs.albumsBySubfolder = !prefs.albumsBySubfolder
             }
             MenuSpec { separator: true }
+            MenuSpec {
+                text: qsTr("Play Video"); shortcut: "Return"
+                visible: app.viewing && app.viewer.isVideo
+                enabled: app.viewing && app.viewer.isVideo
+                onTriggered: app.viewer.playCurrent()
+            }
+            MenuSpec {
+                text: qsTr("Mute Preview"); shortcut: "M"
+                visible: app.viewing && app.viewer.isVideo
+                checkable: true; checked: app.viewing && app.viewer.videoMuted
+                onTriggered: app.viewer.toggleMute()
+            }
+            MenuSpec { separator: true; visible: app.viewing && app.viewer.isVideo }
             MenuSpec { text: qsTr("Zoom In"); shortcut: "+"; enabled: app.viewing; onTriggered: app.viewer.zoomStep(1.5) }
             MenuSpec { text: qsTr("Zoom Out"); shortcut: "-"; enabled: app.viewing; onTriggered: app.viewer.zoomStep(1 / 1.5) }
             MenuSpec { text: qsTr("Fit to Window"); shortcut: "0"; enabled: app.viewing; onTriggered: app.viewer.fit() }
@@ -341,12 +361,12 @@ QtObject {
             MenuSpec {
                 text: qsTr("People")
                 enabled: !app.editing
-                onTriggered: { if (app.viewing) app.viewer.close(); win.goTab(2); win.openPeople() }
+                onTriggered: { if (app.viewing) app.viewer.close(); win.goTab(3); win.openPeople() }
             }
             MenuSpec {
                 text: qsTr("Places")
                 enabled: !app.editing
-                onTriggered: { if (app.viewing) app.viewer.close(); win.goTab(2); win.openPlaces() }
+                onTriggered: { if (app.viewing) app.viewer.close(); win.goTab(3); win.openPlaces() }
             }
             MenuSpec {
                 text: qsTr("Favorites")

@@ -20,7 +20,7 @@ from PySide6.QtCore import Property, QObject, Signal, Slot
 from PySide6.QtGui import QImage
 from PySide6.QtQuick import QQuickImageProvider
 
-from . import DATA_DIR, db
+from . import DATA_DIR, db, is_video
 from .models import format_size
 from .scanner import UPSERT, read_metadata
 from .tasks import run_async
@@ -340,7 +340,7 @@ def save_job(source: str, dest: str, params: dict, row: dict, overwrite: bool) -
         with db.connect() as conn:
             conn.execute(UPSERT, (dest, row["root"], os.path.dirname(dest), os.path.basename(dest),
                                   row["taken"], st.st_mtime, st.st_size, out.width, out.height,
-                                  lat, lon))
+                                  lat, lon, 0, 0.0))
     return dest
 
 
@@ -725,8 +725,8 @@ class Editor(QObject):
 
     @Slot("QStringList", bool)
     def quickRotate(self, paths, clockwise):
-        """Rotate pictures 90° and save (the original is kept for Revert)."""
-        paths = [p for p in paths if p]
+        """Rotate pictures 90° and save (the original is kept for Revert). Videos are skipped."""
+        paths = [p for p in paths if p and not is_video(p)]
         if not paths:
             return
         params = copy.deepcopy(DEFAULTS)

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Generate a folder of sample photos for testing LGallery's scroll performance.
 
-    python tools/make_samples.py ~/Pictures/lgallery-samples --count 5000
+    python tools/make_samples.py ~/Pictures/lgallery-samples --count 5000 [--videos 40]
 
 Images get random EXIF DateTimeOriginal values over the last few years (some get
 none, so the mtime fallback is exercised), a mix of orientations and formats, and
@@ -11,9 +11,11 @@ a few deliberately broken or tiny files that the scanner must skip gracefully.
 import argparse
 import os
 import random
+import shutil
+import subprocess
 import time
 from concurrent.futures import ProcessPoolExecutor
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -83,12 +85,32 @@ def make_broken(out_dir):
     Image.new("RGB", (600, 600), "blue").save(os.path.join(hidden, "secret.bmp"))
 
 
+def make_video(args):
+    """A short clip with a recording date (needs ffmpeg)."""
+    out_dir, index, seed, years = args
+    rng = random.Random(seed)
+    folder = os.path.join(out_dir, rng.choice(["Camera", "Camera", "WhatsApp Video", "Trips/Alps"]))
+    os.makedirs(folder, exist_ok=True)
+    when = datetime.now() - timedelta(days=rng.random() * 365 * years, seconds=rng.randint(0, 86400))
+    portrait = rng.random() < 0.4
+    size = "360x640" if portrait else "640x360"
+    seconds = rng.choice([3, 5, 8, 12])
+    path = os.path.join(folder, f"VID_{when:%Y%m%d_%H%M%S}_{index}.mp4")
+    utc = datetime.fromtimestamp(when.timestamp(), timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", f"testsrc2=size={size}:rate=25",
+                    "-f", "lavfi", "-i", f"sine=frequency={rng.randint(220, 880)}", "-t", str(seconds),
+                    "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-c:a", "aac",
+                    "-metadata", f"creation_time={utc}", path], check=True)
+    return path
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("out_dir")
     parser.add_argument("--count", type=int, default=5000)
     parser.add_argument("--years", type=float, default=3)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--videos", type=int, default=0, help="also write this many short videos (needs ffmpeg)")
     args = parser.parse_args()
 
     out_dir = os.path.abspath(os.path.expanduser(args.out_dir))
@@ -101,6 +123,14 @@ def main():
                 print(f"{n}/{args.count}")
     make_broken(out_dir)
     print(f"Wrote {args.count} images to {out_dir} in {time.time() - start:.1f}s")
+    if args.videos > 0:
+        if not shutil.which("ffmpeg"):
+            print("ffmpeg not found: no videos written (sudo pacman -S ffmpeg)")
+            return
+        jobs = [(out_dir, i, args.seed * 7_000_003 + i, args.years) for i in range(args.videos)]
+        with ProcessPoolExecutor(max_workers=4) as pool:
+            list(pool.map(make_video, jobs))
+        print(f"Wrote {args.videos} videos")
 
 
 if __name__ == "__main__":

@@ -54,7 +54,7 @@ def memories(today: date | None = None) -> list[dict]:
     marks = ",".join("?" * len(month_days))
     rows = db.connect().execute(
         "SELECT id, path, taken, mtime, size, width, height, favorite FROM images "
-        "WHERE available = 1 AND strftime('%m-%d', taken, 'unixepoch', 'localtime') IN (" + marks + ")",
+        "WHERE available = 1 AND video = 0 AND strftime('%m-%d', taken, 'unixepoch', 'localtime') IN (" + marks + ")",
         month_days).fetchall()
     by_years: dict[int, list] = {}
     for r in rows:

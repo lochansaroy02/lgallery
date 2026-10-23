@@ -35,8 +35,13 @@ Item {
         ? qsTr("Select items") : qsTr("%1 selected").arg(photoModel.selectionCount)
 
     function countText(n) {
-        return n === 1 ? qsTr("1 picture")
-                       : qsTr("%1 pictures").arg(n.toLocaleString(Qt.locale(), "f", 0))
+        function num(k) { return k.toLocaleString(Qt.locale(), "f", 0) }
+        var v = Math.min(n, photoModel.videoCount)
+        var p = n - v
+        var pictures = p === 1 ? qsTr("1 picture") : qsTr("%1 pictures").arg(num(p))
+        if (v === 0) return pictures
+        var vids = v === 1 ? qsTr("1 video") : qsTr("%1 videos").arg(num(v))
+        return p === 0 ? vids : pictures + "  ·  " + vids
     }
     function enterSelection(index) {
         selectMode = true

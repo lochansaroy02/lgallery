@@ -17,14 +17,15 @@ from PySide6.QtCore import (
 )
 
 from . import db, external
+from .video import format_duration
 from .tasks import run_async
 
 log = logging.getLogger(__name__)
 
 # item layout (lists so favorite can be updated in place)
-F_ID, F_PATH, F_TAKEN, F_MTIME, F_W, F_H, F_SIZE, F_AVAIL, F_FAV, F_DAY = range(10)
+F_ID, F_PATH, F_TAKEN, F_MTIME, F_W, F_H, F_SIZE, F_AVAIL, F_FAV, F_VIDEO, F_DUR, F_DAY = range(12)
 
-COLUMNS_SQL = "id, path, taken, mtime, width, height, size, available, favorite"
+COLUMNS_SQL = "id, path, taken, mtime, width, height, size, available, favorite, video, duration"
 
 
 def _day_ordinal(ts: int) -> int:
@@ -58,6 +59,8 @@ def build_filter(kind: str, value: str) -> tuple[str, list]:
         return "dir = ?", [value]
     if kind == "favorites":
         return "favorite = 1", []
+    if kind == "videos":
+        return "video = 1", []
     if kind == "person":
         return "id IN (SELECT image_id FROM faces WHERE person_id = ?)", [int(value or 0)]
     if kind == "place":
@@ -71,6 +74,8 @@ def build_filter(kind: str, value: str) -> tuple[str, list]:
             if len(low) == 4 and low.isdigit():
                 clauses.append("strftime('%Y', taken, 'unixepoch', 'localtime') = ?")
                 params.append(low)
+            elif low in ("video", "videos"):
+                clauses.append("video = 1")
             elif low in months:
                 clauses.append("strftime('%m', taken, 'unixepoch', 'localtime') = ?")
                 params.append(f"{months[low]:02d}")
@@ -127,6 +132,7 @@ class PhotoModel(QAbstractListModel):
     def __init__(self, columns=5, kind="all", value="", auto_load=True, parent=None):
         super().__init__(parent)
         self._items: list[list] = []
+        self._video_count = 0
         self._rows: list[tuple[int, int, int]] = []  # (start, end, day)
         self._row_starts: list[int] = []
         self._columns = columns
@@ -203,6 +209,7 @@ class PhotoModel(QAbstractListModel):
         self.viewAboutToReset.emit()
         self.beginResetModel()
         self._items = items
+        self._video_count = sum(1 for it in items if it[F_VIDEO])
         self._label_cache.clear()
         ids = {it[F_ID] for it in items}
         sel_before = len(self._selected)
@@ -270,6 +277,8 @@ class PhotoModel(QAbstractListModel):
                     "selected": it[F_ID] in sel,
                     "available": bool(it[F_AVAIL]),
                     "favorite": bool(it[F_FAV]),
+                    "video": bool(it[F_VIDEO]),
+                    "duration": format_duration(it[F_DUR]) if it[F_VIDEO] else "",
                 }
                 for i, it in ((i, self._items[i]) for i in range(start, end))
             ]
@@ -333,6 +342,10 @@ class PhotoModel(QAbstractListModel):
     @Property(int, notify=itemCountChanged)
     def itemCount(self):
         return len(self._items)
+
+    @Property(int, notify=itemCountChanged)
+    def videoCount(self):
+        return self._video_count
 
     @Property(int, notify=selectionChanged)
     def selectionCount(self):
@@ -438,6 +451,9 @@ class PhotoModel(QAbstractListModel):
             "thumb": thumb_url(it),
             "full": f"image://full/{it[F_ID]}/{version(it[F_MTIME], it[F_SIZE])}",
             "animated": path.lower().endswith(".gif"),
+            "video": bool(it[F_VIDEO]),
+            "duration": format_duration(it[F_DUR]) if it[F_VIDEO] else "",
+            "seconds": float(it[F_DUR]),
             "selected": it[F_ID] in self._selected,
             "external": it[F_ID] < 0,
         }
@@ -518,6 +534,10 @@ class PhotoModel(QAbstractListModel):
         return [it[F_ID] for it in self._items if it[F_ID] in self._selected]
 
     @Slot(result=bool)
+    def selectionHasVideos(self):
+        return any(it[F_VIDEO] for it in self._items if it[F_ID] in self._selected)
+
+    @Slot(result=bool)
     def selectionAllFavorite(self):
         sel = [it for it in self._items if it[F_ID] in self._selected]
         return bool(sel) and all(it[F_FAV] for it in sel)
@@ -565,6 +585,15 @@ class AlbumModel(QAbstractListModel):
                 "key": "", "kind": "favorites", "title": "Favorites", "subtitle": "",
                 "count": fav[0], "cover": f"image://thumbs/{fav[2]}/{version(fav[3], fav[4])}",
                 "available": True, "latest": fav[1] or 0,
+            })
+        vids = conn.execute(
+            "SELECT COUNT(*), MAX(taken), id, mtime, size FROM images WHERE video = 1"
+        ).fetchone()
+        if vids and vids[0]:
+            albums.append({
+                "key": "", "kind": "videos", "title": "Videos", "subtitle": "",
+                "count": vids[0], "cover": f"image://thumbs/{vids[2]}/{version(vids[3], vids[4])}",
+                "available": True, "latest": vids[1] or 0,
             })
         col = "dir" if by_subfolder else "root"
         rows = conn.execute(

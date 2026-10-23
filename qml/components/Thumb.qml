@@ -1,7 +1,7 @@
 import QtQuick
 import ".."
 
-// One square grid cell. `item` = {index, src, selected, available, favorite}
+// One square grid cell. `item` = {index, src, selected, available, favorite, video, duration}
 Item {
     id: thumb
     property var item: ({})
@@ -67,6 +67,38 @@ Item {
             filled: true
             color: "white"
             size: 14
+        }
+        // video: play mark and length, like One UI
+        Rectangle {
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.margins: 5
+            visible: thumb.item && thumb.item.video === true
+            width: videoRow.implicitWidth + 10
+            height: 20
+            radius: 10
+            color: Qt.rgba(0, 0, 0, 0.42)
+            Row {
+                id: videoRow
+                anchors.centerIn: parent
+                spacing: 3
+                Icon {
+                    anchors.verticalCenter: parent.verticalCenter
+                    name: "play"
+                    filled: true
+                    strokeWidth: 1
+                    color: "white"
+                    size: 10
+                }
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    visible: thumb.width >= 72 && text !== ""
+                    text: thumb.item && thumb.item.duration ? thumb.item.duration : ""
+                    color: "white"
+                    font.pixelSize: Theme.fontTiny
+                    font.weight: Font.DemiBold
+                }
+            }
         }
     }
 

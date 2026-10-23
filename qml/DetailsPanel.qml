@@ -93,12 +93,19 @@ Rectangle {
             }
         }
 
-        Field { icon: "pictures"; label: qsTr("Date taken"); value: panel.info.date || "" }
-        Field { icon: "image"; label: qsTr("File name"); value: panel.info.name || "" }
+        Field { icon: "pictures"; label: panel.info.video ? qsTr("Date recorded") : qsTr("Date taken"); value: panel.info.date || "" }
+        Field { icon: panel.info.video ? "video" : "image"; label: qsTr("File name"); value: panel.info.name || "" }
         Field {
             icon: "zoomIn"
             label: qsTr("Resolution")
-            value: panel.info.width > 0 ? panel.info.width + " × " + panel.info.height + panel.megapixels() : qsTr("Unknown")
+            value: panel.info.width > 0 ? panel.info.width + " × " + panel.info.height
+                                          + (panel.info.video ? "" : panel.megapixels()) : qsTr("Unknown")
+        }
+        Field {
+            visible: panel.info.video === true
+            icon: "play"
+            label: qsTr("Length")
+            value: panel.info.duration || qsTr("Unknown")
         }
         Field { icon: "drive"; label: qsTr("Size"); value: panel.info.size || "" }
         Field {

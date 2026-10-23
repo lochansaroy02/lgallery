@@ -121,7 +121,7 @@ def shot(name, settle=800):
 
 gallery.addFolder(str(lib))
 wait(lambda: not gallery.scanning and gallery.photos.itemCount > 0 and not gallery.photos.loading)
-js("goTab(2)")
+js("goTab(3)")
 check("two stories (1 and 3 years ago)", wait(lambda: len(coll.property("stories")) == 2, 15))
 check("places waiting for place names", wait(lambda: coll.property("placesState") == "need-data", 15))
 check("people off by default", coll.property("peopleState") in ("off", "unavailable"))
@@ -186,7 +186,7 @@ check("story advances by itself", wait(lambda: js("storyPlayer.index") == v1 + 1
 js("goBack()")
 check("Esc closes the story", wait(lambda: js("storyPlayer.visible") is False, 3))
 
-js("prefs.theme = 'dark'; goTab(2)")
+js("prefs.theme = 'dark'; goTab(3)")
 shot("c7-collections-dark", 1500)
 js("prefs.theme = 'system'")
 print("FAILURES:", fails or "none")

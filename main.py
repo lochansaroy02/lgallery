@@ -142,6 +142,7 @@ def create_app(argv=None, files=None):
     ctx.setContextProperty("photos", gallery.photos)
     ctx.setContextProperty("albumPhotos", gallery.albumPhotos)
     ctx.setContextProperty("searchPhotos", gallery.searchPhotos)
+    ctx.setContextProperty("videos", gallery.videos)
     ctx.setContextProperty("albums", gallery.albums)
     ctx.setContextProperty("externalPhotos", gallery.externalPhotos)
     ctx.setContextProperty("launchedWithFiles", bool(files))

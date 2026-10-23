@@ -10,7 +10,7 @@ from datetime import datetime
 from PIL import Image, UnidentifiedImageError
 from PySide6.QtCore import QThread, Signal
 
-from . import db, supported_exts
+from . import db, is_video, supported_exts, video
 
 log = logging.getLogger(__name__)
 
@@ -30,12 +30,13 @@ META_VER = 2  # bump to make the GPS backfill re-read files indexed by older ver
 # A changed file gets its place and faces recomputed (place = NULL, faces_ver = 0).
 UPSERT = f"""
 INSERT INTO images (path, root, dir, name, taken, mtime, size, width, height, lat, lon,
-                    meta_ver, available)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, {META_VER}, 1)
+                    video, duration, meta_ver, available)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, {META_VER}, 1)
 ON CONFLICT(path) DO UPDATE SET
     root = excluded.root, dir = excluded.dir, name = excluded.name,
     taken = excluded.taken, mtime = excluded.mtime, size = excluded.size,
     width = excluded.width, height = excluded.height, lat = excluded.lat, lon = excluded.lon,
+    video = excluded.video, duration = excluded.duration,
     meta_ver = {META_VER}, place = NULL, country = NULL, faces_ver = 0, available = 1
 """
 
@@ -46,6 +47,8 @@ class Meta(NamedTuple):
     height: int
     lat: float | None = None
     lon: float | None = None
+    video: bool = False
+    duration: float = 0.0
 
 
 def _gps_coord(values, ref) -> float | None:
@@ -107,7 +110,17 @@ def parse_exif_date(value) -> int | None:
 
 
 def read_metadata(path: str, mtime: float) -> Meta | None:
-    """Meta(taken, width, height, lat, lon), or None if the file is not a readable image."""
+    """Meta(taken, width, height, lat, lon, video, duration), or None if the file is not
+    a readable picture or video."""
+    if is_video(path):
+        try:
+            v = video.probe(path)
+        except Exception as exc:  # never let one odd file stop a scan
+            log.debug("cannot read video %s: %s", path, exc)
+            return None
+        if v is None:
+            return None
+        return Meta(v.taken or int(mtime), v.width, v.height, v.lat, v.lon, True, v.duration)
     try:
         with Image.open(path) as im:
             width, height = im.size
@@ -178,7 +191,8 @@ def scan_root(entry, min_size_kb=20, should_stop=lambda: False, progress=None) -
                 seen.discard(path)
                 continue
             rows.append((path, root, dirpath, name, meta.taken, mtime, size,
-                         meta.width, meta.height, meta.lat, meta.lon))
+                         meta.width, meta.height, meta.lat, meta.lon,
+                         int(meta.video), meta.duration))
             stats["updated" if path in existing else "added"] += 1
         with conn:
             conn.executemany(UPSERT, rows)
