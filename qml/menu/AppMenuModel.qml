@@ -253,6 +253,16 @@ QtObject {
                 MenuSpec { text: qsTr("Dark"); checkable: true; checked: prefs.theme === "dark"; onTriggered: prefs.theme = "dark" }
             }
             MenuSpec {
+                text: qsTr("Accent Colour")
+                submenu: true
+                model: [{ text: qsTr("System (KDE accent colour)"), value: "system", checked: prefs.accent === "system" }]
+                       .concat(Theme.accentPalette.map(p => ({ text: p.name, value: p.color, checked: prefs.accent === p.color })))
+                onPicked: (value) => prefs.accent = value
+                dynamicFirst: true
+                MenuSpec { separator: true }
+                MenuSpec { text: qsTr("Custom…"); onTriggered: win.pickCustomAccent() }
+            }
+            MenuSpec {
                 text: qsTr("Albums per Sub-folder")
                 checkable: true; checked: prefs.albumsBySubfolder
                 onTriggered: prefs.albumsBySubfolder = !prefs.albumsBySubfolder

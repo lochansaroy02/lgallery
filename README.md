@@ -17,6 +17,7 @@ LGallery is a desktop photo gallery for Arch-based Linux (Manjaro) on KDE Plasma
 - **Search:** by file name, folder or date (`2025`, `October`, `oct 2024`, `Screenshot`).
 - **Live updates** (needs watchdog). Folders on unmounted drives are kept and marked *unavailable* instead of being removed.
 - **Themes:** light and dark. By default it follows your KDE colour scheme, and you can override that in Settings.
+- **Accent colour:** by default Gallery uses **KDE's accent colour** (*System Settings → Colors & Themes → Colors → Accent color*, including *From wallpaper*), and it updates live when you change it. **Settings → Appearance → Accent colour** (or **View ▸ Accent Colour**) offers 12 other colours or any custom colour.
 
 ## Install on Arch / Manjaro
 

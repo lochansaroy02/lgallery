@@ -9,7 +9,7 @@ from PySide6.QtCore import (
     Property, QFileSystemWatcher, QObject, QProcess, QProcessEnvironment, Qt, QTimer, QUrl,
     Signal, Slot,
 )
-from PySide6.QtGui import QGuiApplication
+from PySide6.QtGui import QGuiApplication, QPalette
 
 from . import (
     PROJECT_URL, __version__, CACHE_DIR, CONFIG_PATH, DATA_DIR, DB_PATH, HEIF_SUPPORTED, actions, db, external, share, thumbs,
@@ -27,19 +27,52 @@ WATCH_DEBOUNCE_MS = 2_000
 LIVE_RELOAD_MS = 4_000
 
 
-def _kde_prefers_dark() -> bool | None:
-    path = os.path.join(
-        os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config"), "kdeglobals"
-    )
+def _kdeglobals_path() -> str:
+    return os.path.join(
+        os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config"), "kdeglobals")
+
+
+def _read_kdeglobals() -> configparser.RawConfigParser | None:
     parser = configparser.RawConfigParser(strict=False, interpolation=None)
+    parser.optionxform = str
     try:
-        if not parser.read(path, encoding="utf-8"):
-            return None
-        rgb = parser["Colors:Window"]["BackgroundNormal"]
-        r, g, b = (int(x) for x in rgb.split(",")[:3])
-    except (configparser.Error, KeyError, ValueError, UnicodeDecodeError):
+        return parser if parser.read(_kdeglobals_path(), encoding="utf-8") else None
+    except (configparser.Error, UnicodeDecodeError):
         return None
+
+
+def _rgb(value: str) -> tuple[int, int, int] | None:
+    try:
+        r, g, b = (int(x) for x in value.split(",")[:3])
+    except (ValueError, AttributeError):
+        return None
+    return (r, g, b) if all(0 <= c <= 255 for c in (r, g, b)) else None
+
+
+def _kde_prefers_dark() -> bool | None:
+    parser = _read_kdeglobals()
+    rgb = _rgb(parser.get("Colors:Window", "BackgroundNormal", fallback="")) if parser else None
+    if rgb is None:
+        return None
+    r, g, b = rgb
     return (0.299 * r + 0.587 * g + 0.114 * b) < 128
+
+
+def kde_accent_color() -> str:
+    """KDE's accent colour as #rrggbb, or "" when it can't be read.
+
+    System Settings > Colors & Themes > Colors > Accent color writes [General] AccentColor
+    for both "From wallpaper" and a custom colour; "From current color scheme" leaves it
+    out, and the scheme's own highlight colour is the accent."""
+    parser = _read_kdeglobals()
+    if parser is None:
+        return ""
+    for section, key in (("General", "AccentColor"), ("Colors:View", "DecorationFocus"),
+                         ("Colors:Selection", "BackgroundNormal")):
+        rgb = _rgb(parser.get(section, key, fallback=""))
+        if rgb:
+            return "#%02x%02x%02x" % rgb
+    return ""
 
 
 class Gallery(QObject):
@@ -47,6 +80,7 @@ class Gallery(QObject):
     scanningChanged = Signal()
     scanProgressChanged = Signal()
     systemDarkChanged = Signal()
+    systemAccentChanged = Signal()
     cacheSizeChanged = Signal()
     toast = Signal(str)
     itemsRemoved = Signal()
@@ -101,17 +135,22 @@ class Gallery(QObject):
         self._live_reload.timeout.connect(self._reload_grids)
 
         self._system_dark = False
+        self._system_accent = ""
         hints = QGuiApplication.styleHints()
         if hasattr(hints, "colorSchemeChanged"):
-            hints.colorSchemeChanged.connect(self._update_system_dark)
+            hints.colorSchemeChanged.connect(self._update_system_theme)
+        app = QGuiApplication.instance()
+        if app is not None and hasattr(app, "paletteChanged"):
+            app.paletteChanged.connect(self._update_system_theme)
+        # KDE saves kdeglobals by replacing the file, which ends a plain file watch, so the
+        # folder is watched too and the file is re-added after every change.
         self._kde_watch = QFileSystemWatcher(self)
-        kdeglobals = os.path.join(
-            os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config"), "kdeglobals"
-        )
-        if os.path.exists(kdeglobals):
-            self._kde_watch.addPath(kdeglobals)
-            self._kde_watch.fileChanged.connect(lambda *_: self._update_system_dark())
-        self._update_system_dark()
+        self._kde_watch.fileChanged.connect(self._on_kdeglobals_changed)
+        self._kde_watch.directoryChanged.connect(self._on_kdeglobals_changed)
+        self._theme_timer = QTimer(self, singleShot=True, interval=250)
+        self._theme_timer.timeout.connect(self._update_system_theme)
+        self._watch_kdeglobals()
+        self._update_system_theme()
 
         self._refresh_folders()
         self._update_watcher()
@@ -119,6 +158,34 @@ class Gallery(QObject):
             QTimer.singleShot(300, self.rescan)
 
     # ---- theme -----------------------------------------------------------------
+    def _watch_kdeglobals(self):
+        path = _kdeglobals_path()
+        folder = os.path.dirname(path)
+        if os.path.isdir(folder) and folder not in self._kde_watch.directories():
+            self._kde_watch.addPath(folder)
+        if os.path.exists(path) and path not in self._kde_watch.files():
+            self._kde_watch.addPath(path)
+
+    def _on_kdeglobals_changed(self, *_):
+        self._watch_kdeglobals()
+        self._theme_timer.start()  # coalesce the burst of events of one save
+
+    def _update_system_theme(self, *_):
+        self._update_system_dark()
+        accent = kde_accent_color()
+        if not accent:
+            palette = QGuiApplication.palette()
+            role = getattr(QPalette.ColorRole, "Accent", QPalette.ColorRole.Highlight)
+            accent = palette.color(role).name() if sys.platform == "linux" else ""
+        if accent != self._system_accent:
+            self._system_accent = accent
+            self.systemAccentChanged.emit()
+
+    @Property(str, notify=systemAccentChanged)
+    def systemAccent(self):
+        """The desktop's accent colour (#rrggbb), "" if unknown."""
+        return self._system_accent
+
     def _update_system_dark(self, *_):
         dark = None
         hints = QGuiApplication.styleHints()

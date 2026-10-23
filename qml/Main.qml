@@ -23,6 +23,17 @@ ApplicationWindow {
         property: "dark"
         value: prefs.theme === "dark" || (prefs.theme === "system" && gallery.systemDark)
     }
+    // accent: KDE's accent colour (System Settings > Colors & Themes > Colors) or a chosen one
+    readonly property color systemAccent: gallery.systemAccent !== "" ? gallery.systemAccent : Theme.defaultAccent
+    Binding {
+        target: Theme
+        property: "accent"
+        value: prefs.accent === "system" ? root.systemAccent : prefs.accent
+    }
+    function pickCustomAccent() {
+        accentDialog.selectedColor = Theme.accent
+        accentDialog.open()
+    }
 
     readonly property real navInset: Theme.navHeight + Theme.s5 * 2
     readonly property var currentGrid: stack.currentItem && stack.currentItem.grid ? stack.currentItem.grid : null
@@ -338,6 +349,12 @@ ApplicationWindow {
     NameDialog { id: nameDialog }
     MergeDialog { id: mergeDialog }
     AboutDialog { id: aboutDialog }
+
+    ColorDialog {
+        id: accentDialog
+        title: qsTr("Choose an accent colour")
+        onAccepted: prefs.accent = selectedColor.toString().slice(0, 7)
+    }
 
     FileDialog {
         id: openPicture

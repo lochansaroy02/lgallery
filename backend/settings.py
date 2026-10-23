@@ -3,6 +3,7 @@
 import json
 import logging
 import os
+import re
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
 
@@ -13,6 +14,7 @@ log = logging.getLogger(__name__)
 DEFAULTS = {
     "folders": [],            # [{"path": "/abs/path", "mount": "/mount/point"}]
     "theme": "system",        # system | light | dark
+    "accent": "system",       # system (KDE accent colour) | "#rrggbb"
     "min_size_kb": 20,
     "columns": 6,
     "albums_by_subfolder": False,
@@ -44,6 +46,7 @@ def _is_within(child: str, parent: str) -> bool:
 class Settings(QObject):
     foldersChanged = Signal()
     themeChanged = Signal()
+    accentChanged = Signal()
     minSizeKbChanged = Signal()
     columnsChanged = Signal()
     albumsBySubfolderChanged = Signal()
@@ -129,6 +132,17 @@ class Settings(QObject):
             self._set("theme", value, self.themeChanged)
 
     theme = Property(str, _get_theme, _set_theme, notify=themeChanged)
+
+    def _get_accent(self):
+        return self._data.get("accent", "system")
+
+    def _set_accent(self, value):
+        value = str(value).strip().lower()
+        if value != "system" and not re.fullmatch(r"#[0-9a-f]{6}", value):
+            return
+        self._set("accent", value, self.accentChanged)
+
+    accent = Property(str, _get_accent, _set_accent, notify=accentChanged)
 
     def _get_min_size(self):
         return int(self._data["min_size_kb"])

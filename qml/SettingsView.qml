@@ -132,6 +132,35 @@ Item {
                         onPicked: (v) => prefs.theme = v
                     }
                 }
+                Item {
+                    width: parent.width
+                    height: accentColumn.implicitHeight + 24
+                    Column {
+                        id: accentColumn
+                        x: Theme.s5
+                        y: 12
+                        width: parent.width - 2 * Theme.s5
+                        spacing: Theme.s2
+                        Text {
+                            text: qsTr("Accent colour")
+                            color: Theme.text
+                            font.pixelSize: Theme.fontBody + 1
+                        }
+                        Text {
+                            width: parent.width
+                            wrapMode: Text.Wrap
+                            text: prefs.accent === "system"
+                                  ? (gallery.systemAccent !== ""
+                                     ? qsTr("System: KDE's accent colour (System Settings › Colors & Themes › Colors › Accent color)")
+                                     : qsTr("System: no desktop accent colour found, using One UI Blue"))
+                                  : qsTr("Chosen colour %1").arg(prefs.accent.toUpperCase())
+                            color: Theme.textSecondary
+                            font.pixelSize: Theme.fontSmall
+                        }
+                        Item { width: 1; height: 2 }
+                        AccentPicker { width: parent.width }
+                    }
+                }
                 SettingRow {
                     title: qsTr("Grid columns")
                     subtitle: qsTr("Also Ctrl + mouse wheel or Ctrl +/- in the grid")

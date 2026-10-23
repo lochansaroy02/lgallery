@@ -228,7 +228,7 @@ Item {
                     width: tabRow.implicitWidth + 32
                     height: 40
                     radius: 20
-                    color: active ? Qt.rgba(0.243, 0.569, 1.0, 0.25) : (tabMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : "transparent")
+                    color: active ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.25) : (tabMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : "transparent")
                     Row {
                         id: tabRow
                         anchors.centerIn: parent
