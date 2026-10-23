@@ -76,7 +76,7 @@ Open the application launcher and search for **Gallery**. If it doesn't show up 
 
 > The launcher points to this folder. If you move or rename the project folder, run `./packaging/install-user.sh` again.
 
-**Update:** `git pull`, then `.venv/bin/pip install -r requirements.txt` if the requirements changed.
+**Update:** `./update.sh` (see [Updating](#updating)).
 **Uninstall:** `./packaging/install-user.sh --uninstall`
 
 ### Option B: system-wide Arch package
@@ -92,8 +92,30 @@ makepkg -si
 
 This installs `/usr/bin/lgallery`, `/usr/share/lgallery/`, `/usr/share/applications/lgallery.desktop` and the icon. **Gallery** then appears in the launcher for all users. HEIC support is optional: `yay -S python-pillow-heif`.
 
-**Update:** `git pull`, then `cd packaging && makepkg -sif`.
+**Update:** `./update.sh` (see [Updating](#updating)).
 **Uninstall:** `sudo pacman -R lgallery`
+
+### Updating
+
+From the project folder, run:
+
+```bash
+./update.sh
+```
+
+It pulls the latest commits from GitHub, shows what changed, and updates whichever install you have:
+
+- **User install (option A):** updates the Python packages if `requirements.txt` changed, then refreshes the launcher, menu entry and icon. If an Arch Python upgrade broke `.venv`, it is recreated automatically.
+- **Arch package (option B):** rebuilds and reinstalls the package with `makepkg` (asks for your password).
+- **Not installed yet:** sets up `.venv`; add `--install` to also put Gallery in the launcher.
+
+| Option | What it does |
+| --- | --- |
+| `--restart` | restart Gallery afterwards if it is open (otherwise just close and reopen it) |
+| `--no-pull` | skip `git pull`, only reinstall from the current folder |
+| `--install` | install the launcher if Gallery isn't installed yet |
+
+The script stops without changing anything if you have edited tracked files locally (commit them or `git stash` first). It also checks that the new version starts before reinstalling a package. Your settings, library, favorites and saved originals are never touched by an update.
 
 ### Make Gallery your image viewer (open pictures from Dolphin)
 

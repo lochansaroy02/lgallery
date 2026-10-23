@@ -7,3 +7,6 @@ CLAUDE.md
 ui-shots/
 .vscode/
 .DS_Store
+packaging/pkg/
+packaging/src/
+packaging/*.pkg.tar.*
