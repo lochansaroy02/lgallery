@@ -10,7 +10,7 @@ Item {
     readonly property real headerHeight: Math.max(150, Math.min(250, height * 0.3))
     readonly property real collapse: Math.max(0, Math.min(1, flick.contentY / (headerHeight * 0.7)))
 
-    Component.onCompleted: gallery.refreshCacheSize()
+    Component.onCompleted: { gallery.refreshCacheSize(); editor.refreshOriginalsSize() }
 
     component Group: Column {
         property string title
@@ -219,6 +219,20 @@ Item {
                         onClicked: gallery.clearThumbnailCache()
                     }
                 }
+                SettingRow {
+                    title: qsTr("Saved originals")
+                    subtitle: qsTr("Kept when you save an edit, so you can revert. %1")
+                              .arg(editor.originalsSize === "" ? "…" : editor.originalsSize)
+                    PillButton {
+                        compact: true
+                        kind: "tonal"
+                        text: qsTr("Delete")
+                        onClicked: ApplicationWindow.window.confirm(
+                            qsTr("Delete saved originals?"),
+                            qsTr("Edited pictures can no longer be reverted to their originals."),
+                            qsTr("Delete"), function() { editor.clearOriginals() })
+                    }
+                }
             }
 
             Group {
@@ -230,6 +244,7 @@ Item {
                 SettingRow { title: qsTr("Index"); subtitle: gallery.locations.index }
                 SettingRow { title: qsTr("Settings file"); subtitle: gallery.locations.config }
                 SettingRow { title: qsTr("Thumbnail cache"); subtitle: gallery.locations.cache }
+                SettingRow { title: qsTr("Saved originals"); subtitle: gallery.locations.originals }
             }
         }
     }

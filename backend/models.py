@@ -96,8 +96,13 @@ def format_size(n: int) -> str:
     return f"{n} B"
 
 
+def version(mtime, size) -> str:
+    """Changes whenever the file content changes; part of image URLs and cache keys."""
+    return f"{int(mtime)}-{size}"
+
+
 def thumb_url(item) -> str:
-    return f"image://thumbs/{item[F_ID]}/{int(item[F_MTIME])}"
+    return f"image://thumbs/{item[F_ID]}/{version(item[F_MTIME], item[F_SIZE])}"
 
 
 class PhotoModel(QAbstractListModel):
@@ -290,6 +295,13 @@ class PhotoModel(QAbstractListModel):
             return self._items[item_index][F_ID]
         return -1
 
+    @Slot(str, result=int)
+    def indexOfPath(self, path):
+        for i, it in enumerate(self._items):
+            if it[F_PATH] == path:
+                return i
+        return -1
+
     @Slot(int, result=int)
     def indexOfId(self, image_id):
         for i, it in enumerate(self._items):
@@ -352,7 +364,7 @@ class PhotoModel(QAbstractListModel):
             "available": bool(it[F_AVAIL]),
             "favorite": bool(it[F_FAV]),
             "thumb": thumb_url(it),
-            "full": f"image://full/{it[F_ID]}/{int(it[F_MTIME])}",
+            "full": f"image://full/{it[F_ID]}/{version(it[F_MTIME], it[F_SIZE])}",
             "animated": path.lower().endswith(".gif"),
             "selected": it[F_ID] in self._selected,
         }
@@ -473,25 +485,25 @@ class AlbumModel(QAbstractListModel):
         conn = db.connect()
         albums = []
         fav = conn.execute(
-            "SELECT COUNT(*), MAX(taken), id, mtime FROM images WHERE favorite = 1"
+            "SELECT COUNT(*), MAX(taken), id, mtime, size FROM images WHERE favorite = 1"
         ).fetchone()
         if fav and fav[0]:
             albums.append({
                 "key": "", "kind": "favorites", "title": "Favorites", "subtitle": "",
-                "count": fav[0], "cover": f"image://thumbs/{fav[2]}/{int(fav[3])}",
+                "count": fav[0], "cover": f"image://thumbs/{fav[2]}/{version(fav[3], fav[4])}",
                 "available": True, "latest": fav[1] or 0,
             })
         col = "dir" if by_subfolder else "root"
         rows = conn.execute(
-            f"SELECT {col}, COUNT(*), MAX(taken), id, mtime, SUM(available) "
+            f"SELECT {col}, COUNT(*), MAX(taken), id, mtime, size, SUM(available) "
             f"FROM images GROUP BY {col}"
         ).fetchall()
         folders = []
-        for key, count, latest, cover_id, mtime, avail in rows:
+        for key, count, latest, cover_id, mtime, size, avail in rows:
             folders.append({
                 "key": key, "kind": col, "title": os.path.basename(key) or key,
                 "subtitle": key, "count": count,
-                "cover": f"image://thumbs/{cover_id}/{int(mtime)}",
+                "cover": f"image://thumbs/{cover_id}/{version(mtime, size)}",
                 "available": bool(avail), "latest": latest or 0,
             })
         folders.sort(key=lambda a: a["latest"], reverse=True)

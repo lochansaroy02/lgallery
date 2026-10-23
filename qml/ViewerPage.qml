@@ -23,11 +23,16 @@ Item {
     readonly property var win: ApplicationWindow.window
     property int keepId: -1
     property int keepIndex: 0
+    property int revision: 0          // bumps when the model data changes (edits, favorites)
+    property string followPath: ""    // after "Save as copy", jump to the new file
+    property bool canRevert: false
 
     function refreshInfo() {
         info = photoModel && currentIndex >= 0 && currentIndex < photoModel.itemCount
                ? photoModel.itemAt(currentIndex) : ({})
+        canRevert = info.path ? editor.hasOriginal(info.path) : false
     }
+    function follow(path) { followPath = path }
     onCurrentIndexChanged: refreshInfo()
 
     function fitRect(w, h) {
@@ -106,6 +111,12 @@ Item {
         gallery.setFavorite([info.id], !info.favorite)
     }
 
+    Connections {
+        target: editor
+        function onReverted(path) { viewer.refreshInfo() }
+        function onSaved(path, isCopy) { viewer.refreshInfo() }
+    }
+
     // keep showing the same picture when the model is rebuilt (scan, delete, ...)
     Connections {
         target: viewer.photoModel
@@ -116,15 +127,18 @@ Item {
         }
         function onViewReset() {
             var count = viewer.photoModel.itemCount
+            viewer.revision++
             if (count === 0) { viewer.closing = false; viewer.visible = false; return }
-            var idx = viewer.photoModel.indexOfId(viewer.keepId)
+            var idx = viewer.followPath !== "" ? viewer.photoModel.indexOfPath(viewer.followPath) : -1
+            viewer.followPath = ""
+            if (idx < 0) idx = viewer.photoModel.indexOfId(viewer.keepId)
             if (idx < 0) idx = Math.min(viewer.keepIndex, count - 1)
             pager.positionViewAtIndex(idx, ListView.Beginning)
             pager.currentIndex = idx
             viewer.currentIndex = idx
             viewer.refreshInfo()
         }
-        function onDataChanged() { viewer.refreshInfo() }
+        function onDataChanged() { viewer.revision++; viewer.refreshInfo() }
     }
 
     Rectangle {
@@ -153,7 +167,7 @@ Item {
             width: pager.width
             height: pager.height
             clip: true
-            readonly property var item: viewer.photoModel ? viewer.photoModel.itemAt(index) : ({})
+            readonly property var item: viewer.revision >= 0 && viewer.photoModel ? viewer.photoModel.itemAt(index) : ({})
             readonly property bool isCurrent: ListView.isCurrentItem
             property real zoom: 1
             property real panX: 0
@@ -382,10 +396,20 @@ Item {
                 onClicked: moreMenu.popup()
                 Menu {
                     id: moreMenu
+                    MenuItem { text: qsTr("Open with…"); onTriggered: viewer.win.openWith([viewer.info.path]) }
                     MenuItem { text: qsTr("Open in default app"); onTriggered: gallery.openExternally(viewer.info.path) }
                     MenuItem { text: qsTr("Show in folder"); onTriggered: gallery.showInFolder(viewer.info.path) }
                     MenuItem { text: qsTr("Copy path"); onTriggered: gallery.copyPaths([viewer.info.path]) }
                     MenuItem { text: qsTr("Copy to clipboard"); onTriggered: gallery.shareFiles([viewer.info.path]) }
+                    MenuItem {
+                        text: qsTr("Revert to original")
+                        visible: viewer.canRevert
+                        height: visible ? implicitHeight : 0
+                        onTriggered: viewer.win.confirm(
+                            qsTr("Revert to original?"),
+                            qsTr("All edits you saved to this picture are removed and the original file is restored."),
+                            qsTr("Revert"), function() { editor.revertOriginal(viewer.info.path) })
+                    }
                 }
             }
         }
@@ -446,8 +470,9 @@ Item {
                 icon: "edit"
                 color: "white"
                 onDark: true
-                tip: qsTr("Edit / Open with")
-                onClicked: viewer.win.openWith([viewer.info.path])
+                enabled: viewer.info.available === true && viewer.info.animated !== true
+                tip: qsTr("Edit (E)")
+                onClicked: viewer.win.openEditor(viewer.info)
             }
             IconButton {
                 icon: "share"
@@ -497,6 +522,7 @@ Item {
         case Qt.Key_End: if (photoModel) pager.currentIndex = photoModel.itemCount - 1; break
         case Qt.Key_I: viewer.detailsOpen = !viewer.detailsOpen; break
         case Qt.Key_F: viewer.toggleFavorite(); break
+        case Qt.Key_E: if (viewer.info.available && !viewer.info.animated) viewer.win.openEditor(viewer.info); break
         case Qt.Key_Plus: case Qt.Key_Equal:
             if (page) page.animatedZoomAt(page.zoom * 1.5, width / 2, height / 2); break
         case Qt.Key_Minus:

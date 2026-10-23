@@ -9,7 +9,7 @@ from PySide6.QtCore import (
 )
 from PySide6.QtGui import QGuiApplication
 
-from . import CACHE_DIR, CONFIG_PATH, DB_PATH, HEIF_SUPPORTED, actions, db, thumbs
+from . import CACHE_DIR, CONFIG_PATH, DATA_DIR, DB_PATH, HEIF_SUPPORTED, actions, db, thumbs
 from .models import AlbumModel, PhotoModel, format_size
 from .scanner import ScanThread, root_available
 from .settings import Settings
@@ -261,6 +261,12 @@ class Gallery(QObject):
         self._reload_grids()
         self.albums.reload()
 
+    @Slot()
+    def reloadLibrary(self):
+        """Refresh every view after files were changed by the app (editor, trash)."""
+        self._reload_all()
+        self._refresh_folders()
+
     def _sync_columns(self):
         for m in self._grids:
             m.columns = self.settings.columns
@@ -399,4 +405,5 @@ class Gallery(QObject):
 
     @Property("QVariantMap", constant=True)
     def locations(self):
-        return {"config": str(CONFIG_PATH), "index": str(DB_PATH), "cache": str(CACHE_DIR)}
+        return {"config": str(CONFIG_PATH), "index": str(DB_PATH), "cache": str(CACHE_DIR),
+                "originals": str(DATA_DIR / "originals")}

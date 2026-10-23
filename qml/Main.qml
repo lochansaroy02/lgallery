@@ -25,9 +25,11 @@ ApplicationWindow {
     readonly property real navInset: Theme.navHeight + Theme.s5 * 2
     readonly property var currentGrid: stack.currentItem && stack.currentItem.grid ? stack.currentItem.grid : null
     readonly property bool dialogOpen: confirmDialog.opened || openWithPopup.opened
+    readonly property bool editing: editorPage.visible
 
     // ---- API used by the views (via ApplicationWindow.window) -----------------------
     function openViewer(grid, index) { viewer.open(grid, index) }
+    function openEditor(info) { editorPage.open(info) }
     function openWith(paths) { if (paths.length) openWithPopup.show(paths) }
     function addFolder() { folderDialog.open() }
     function showToast(message) { toast.show(message) }
@@ -54,7 +56,8 @@ ApplicationWindow {
         if (!(stack.currentItem && stack.currentItem.isSettings)) stack.push(settingsPage)
     }
     function goBack() {
-        if (viewer.visible) viewer.close()
+        if (editorPage.visible) editorPage.requestClose()
+        else if (viewer.visible) viewer.close()
         else if (currentGrid && currentGrid.selectMode) currentGrid.exitSelection()
         else if (stack.depth > 1) stack.pop()
     }
@@ -174,6 +177,13 @@ ApplicationWindow {
         z: 100
     }
 
+    EditorPage {
+        id: editorPage
+        anchors.fill: parent
+        z: 150
+        onFinished: (path) => viewer.follow(path)
+    }
+
     Toast {
         id: toast
         z: 200
@@ -210,36 +220,37 @@ ApplicationWindow {
     }
     Shortcut {
         sequences: [StandardKey.Find]
-        enabled: !viewer.visible && !root.dialogOpen
+        enabled: !root.editing && !viewer.visible && !root.dialogOpen
         onActivated: root.openSearch()
     }
     Shortcut {
         sequence: "F5"
+        enabled: !root.editing
         onActivated: gallery.rescan()
     }
     Shortcut {
         sequence: "Ctrl+O"
-        enabled: !viewer.visible
+        enabled: !root.editing && !viewer.visible
         onActivated: root.addFolder()
     }
     Shortcut {
         sequences: [StandardKey.Preferences]
-        enabled: !viewer.visible
+        enabled: !viewer.visible && !root.editing
         onActivated: root.openSettings()
     }
     Shortcut {
         sequence: "Ctrl+,"
-        enabled: !viewer.visible
+        enabled: !viewer.visible && !root.editing
         onActivated: root.openSettings()
     }
     Shortcut {
         sequences: [StandardKey.SelectAll]
-        enabled: !viewer.visible && root.currentGrid !== null && !root.dialogOpen
+        enabled: !root.editing && !viewer.visible && root.currentGrid !== null && !root.dialogOpen
         onActivated: { root.currentGrid.selectMode = true; root.currentGrid.photoModel.selectAll() }
     }
     Shortcut {
         sequences: [StandardKey.Delete]
-        enabled: !root.dialogOpen
+        enabled: !root.dialogOpen && !root.editing
         onActivated: {
             if (viewer.visible) viewer.deleteCurrent()
             else if (root.currentGrid && root.currentGrid.selectMode)
@@ -249,12 +260,12 @@ ApplicationWindow {
     }
     Shortcut {
         sequences: [StandardKey.ZoomIn, "Ctrl+="]
-        enabled: !viewer.visible && root.currentGrid !== null
+        enabled: !root.editing && !viewer.visible && root.currentGrid !== null
         onActivated: root.currentGrid.changeColumns(-1)
     }
     Shortcut {
         sequences: [StandardKey.ZoomOut]
-        enabled: !viewer.visible && root.currentGrid !== null
+        enabled: !root.editing && !viewer.visible && root.currentGrid !== null
         onActivated: root.currentGrid.changeColumns(1)
     }
 }

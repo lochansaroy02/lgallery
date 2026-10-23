@@ -18,6 +18,7 @@ sys.path.insert(0, str(HERE))
 
 from backend import db  # noqa: E402
 from backend.controller import Gallery  # noqa: E402
+from backend.editor import EditImageProvider, Editor  # noqa: E402
 from backend.settings import Settings  # noqa: E402
 from backend.thumbs import ImageProvider  # noqa: E402
 
@@ -69,11 +70,15 @@ def create_app(argv=None):
     db.init()
     settings = Settings(app)
     gallery = Gallery(settings, app)
+    editor = Editor(app)
+    editor.libraryChanged.connect(gallery.reloadLibrary)
+    editor.message.connect(gallery.toast)
 
     engine = QQmlApplicationEngine()
     engine.addImageProvider("thumbs", ImageProvider("thumbs"))
     engine.addImageProvider("full", ImageProvider("full", threads=2))
     engine.addImageProvider("icon", ThemeIconProvider())
+    engine.addImageProvider("edit", EditImageProvider(editor))
 
     ctx = engine.rootContext()
     ctx.setContextProperty("gallery", gallery)
@@ -82,6 +87,7 @@ def create_app(argv=None):
     ctx.setContextProperty("albumPhotos", gallery.albumPhotos)
     ctx.setContextProperty("searchPhotos", gallery.searchPhotos)
     ctx.setContextProperty("albums", gallery.albums)
+    ctx.setContextProperty("editor", editor)
 
     engine.load(QUrl.fromLocalFile(str(HERE / "qml" / "Main.qml")))
     if not engine.rootObjects():

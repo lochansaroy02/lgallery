@@ -7,6 +7,7 @@ LGallery is a desktop photo gallery for Arch-based Linux (Manjaro) on KDE Plasma
 - **Folders tab:** add or remove watched folders and rescan. Removing a folder **never deletes files**.
 - **Selection mode:** right-click or long-press a picture, or tick a day header to select the whole day. Actions: Delete (to the trash), Share (copies the files to the clipboard), Open with, Copy path, Show in folder.
 - **Viewer:** arrow keys or swipe to move between pictures, wheel or double-click or pinch to zoom, drag to pan, and a Details panel.
+- **Photo editor:** Transform (crop with aspect presets, rotate, flip, straighten), 9 Filters, and Adjust (brightness, exposure, contrast, highlights, shadows, saturation, warmth, tint, sharpness, vignette). It has undo/redo and hold-to-compare, and you can **Save**, **Save as copy** or **Revert to original**.
 - **Search:** by file name, folder or date (`2025`, `October`, `oct 2024`, `Screenshot`).
 - **Live updates** (needs watchdog). Folders on unmounted drives are kept and marked *unavailable* instead of being removed.
 - **Themes:** light and dark. By default it follows your KDE colour scheme, and you can override that in Settings.
@@ -105,6 +106,36 @@ This installs `/usr/bin/lgallery`, `/usr/share/lgallery/`, `/usr/share/applicati
 3. To add folders on other drives, mount the drive and add the folder. If the drive is unmounted later, its pictures stay in the gallery, greyed out with a ⚠ mark, and become available again when you remount it. The app checks for mounts every 10 seconds.
 4. To remove a folder, open the **Folders** tab and click ✕ on the folder. Its pictures disappear from the gallery, and the files are left untouched.
 
+### Editing photos
+
+Open a picture and click the **pencil** (or press **E**).
+
+| Tab | What it does |
+| --- | --- |
+| **Transform** | Drag the corners or edges of the crop box, or pick an aspect ratio (Free, Original, 1:1, 4:3, 3:4, 16:9, 9:16). Rotate 90°, flip, and straighten by up to ±45°. |
+| **Filters** | Vivid, Bright, Warm, Cool, Dramatic, Fade, Vintage, Mono and Noir, with an intensity slider. |
+| **Adjust** | Pick a tool and drag the slider. Double-click the slider or the tool to reset it. A blue dot marks tools you've changed. |
+
+- **Undo / Redo:** the arrows at the top left, or **Ctrl+Z** / **Ctrl+Shift+Z**.
+- **Compare:** hold the split-square button at the bottom right of the picture (or hold **\\**) to see the original.
+- **Reset:** discards all unsaved edits. **✕** or **Esc** closes the editor and asks before throwing changes away.
+
+**Saving.** There are two ways to save, and an edited picture keeps its original date, so it stays in the same place in your timeline.
+
+- **Save** (**Ctrl+S**) overwrites the picture with your edits. Before the **first** save of a file, LGallery copies the untouched original to `~/.local/share/lgallery/originals/`.
+- **Save as copy** (**Ctrl+Shift+S**) writes a new file next to the original, for example `IMG_1234_edited.jpg`, and leaves the original untouched.
+
+EXIF data (camera, date, GPS) and colour profiles are kept, and the orientation tag is reset because the pixels are already upright.
+
+**Reverting.** After a **Save**, you can always go back to the original, even weeks later:
+
+- in the viewer, open the **⋮** menu and choose **Revert to original**, or
+- in the editor, click **Revert**. It appears when the picture has a saved original and has no unsaved edits.
+
+Reverting restores the original file exactly (byte for byte, including its modification time) and deletes the backup. To reclaim disk space, **Settings → Storage → Saved originals → Delete** removes all backups, after which edited pictures can no longer be reverted.
+
+You can edit and save JPEG, PNG, WebP, TIFF, BMP and static GIF files, plus HEIC when pillow-heif has an encoder. Animated GIF/WebP files can't be edited.
+
 ### Keyboard
 
 | Key | Action |
@@ -118,7 +149,10 @@ This installs `/usr/bin/lgallery`, `/usr/share/lgallery/`, `/usr/share/applicati
 | Ctrl+O | Add folder |
 | Viewer: ← → Space Home End | Navigate |
 | Viewer: + − 0, wheel, double-click | Zoom |
-| Viewer: F / I | Favorite / Details |
+| Viewer: F / I / E | Favorite / Details / Edit |
+| Editor: Ctrl+Z / Ctrl+Shift+Z | Undo / Redo |
+| Editor: Ctrl+S / Ctrl+Shift+S | Save / Save as copy |
+| Editor: hold \\ | Compare with the original |
 
 ## Where data lives
 
@@ -127,6 +161,7 @@ This installs `/usr/bin/lgallery`, `/usr/share/lgallery/`, `/usr/share/applicati
 | Settings (watched folders, preferences) | `~/.config/lgallery/config.json` |
 | Index (SQLite) | `~/.local/share/lgallery/index.db` |
 | Thumbnail cache | `~/.cache/lgallery/thumbs/` (it is safe to delete, and Settings has a **Clear** button) |
+| Originals of edited photos | `~/.local/share/lgallery/originals/` (needed for **Revert to original**) |
 
 The paths follow `XDG_CONFIG_HOME`, `XDG_DATA_HOME` and `XDG_CACHE_HOME`. Setting `LGALLERY_HOME=/some/dir` puts all three under one directory, which is useful for testing. Set `LGALLERY_LOG=DEBUG` for verbose logs.
 
@@ -142,6 +177,7 @@ The paths follow `XDG_CONFIG_HOME`, `XDG_DATA_HOME` and `XDG_CACHE_HOME`. Settin
 .venv/bin/python -m unittest discover -s tests -v       # backend tests
 .venv/bin/python tools/make_samples.py samples --count 5000
 .venv/bin/python tools/ui_smoke.py samples --out ui-shots  # drives the UI, saves screenshots, measures scrolling
+.venv/bin/python tools/editor_smoke.py samples --out ui-shots  # editor: tabs, save as copy, save, revert
 ```
 
 `ui_smoke.py` uses a temporary `LGALLERY_HOME`, so your real index and settings are not touched.
@@ -157,6 +193,7 @@ backend/models.py     PhotoModel (rows of thumbnails + day sections), AlbumModel
 backend/thumbs.py     async image providers: image://thumbs (disk-cached), image://full
 backend/settings.py   folder list + preferences (JSON)
 backend/actions.py    trash, open with, show in folder, clipboard
+backend/editor.py     photo editor: edit pipeline, preview provider, save / copy / revert
 backend/controller.py glue object exposed to QML as `gallery`
 backend/tasks.py      run work on the thread pool, get results on the GUI thread
 qml/                  Main.qml, Theme.qml (all colours/sizes), views, components/

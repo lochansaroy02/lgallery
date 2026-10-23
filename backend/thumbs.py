@@ -28,9 +28,10 @@ FULL_DEFAULT = 2560
 Image.MAX_IMAGE_PIXELS = 400_000_000  # big panoramas are legitimate photos
 
 
-def cache_path(path: str, mtime: int):
+def cache_path(path: str, version) -> "Path":
+    """Cache file for path; `version` (mtime-size) changes when the file is edited."""
     digest = hashlib.sha1(path.encode("utf-8", "surrogateescape")).hexdigest()
-    return THUMB_DIR / digest[:2] / f"{digest}_{mtime}.jpg"
+    return THUMB_DIR / digest[:2] / f"{digest}_{version}.jpg"
 
 
 def _flatten(im: Image.Image) -> Image.Image:
@@ -125,12 +126,12 @@ class _Response(QQuickImageResponse):
 
 
 class _Job(QRunnable):
-    def __init__(self, provider, response, image_id, mtime, width, height):
+    def __init__(self, provider, response, image_id, version, width, height):
         super().__init__()
         self.provider = provider
         self.response = response
         self.image_id = image_id
-        self.mtime = mtime
+        self.version = version
         self.width = width
         self.height = height
 
@@ -161,7 +162,7 @@ class _Job(QRunnable):
             self.provider.release(response)
 
     def _thumb(self, path):
-        cached = cache_path(path, self.mtime)
+        cached = cache_path(path, self.version)
         if cached.exists():
             image = QImage(str(cached))
             if not image.isNull():
@@ -184,14 +185,15 @@ class ImageProvider(QQuickAsyncImageProvider):
 
     def requestImageResponse(self, image_id, requested_size):
         response = _Response()
+        id_part, _, version = image_id.partition("/")
         try:
-            id_part, _, mtime_part = image_id.partition("/")
-            iid, mtime = int(id_part), int(mtime_part or 0)
+            iid = int(id_part)
         except ValueError:
             response.finish(None, "bad id")
             return response
+        version = "".join(c for c in version if c.isalnum() or c == "-") or "0"
         self._live.add(response)
-        job = _Job(self, response, iid, mtime,
+        job = _Job(self, response, iid, version,
                    requested_size.width(), requested_size.height())
         # newest request first: visible rows win while scrolling quickly
         self.pool.start(job, next(self._priority) % 2_000_000_000)
