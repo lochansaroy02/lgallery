@@ -18,6 +18,15 @@ from PySide6.QtQuickControls2 import QQuickStyle
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
+# "--self-test [report.txt]": start without a window or the user's data, check that the
+# interface and the optional parts (video, printing, ffmpeg) load, then exit 0 / 1. Used by
+# the Windows build to test the packaged LGallery.exe. Set up before the backend is imported.
+SELF_TEST = "--self-test" in sys.argv
+if SELF_TEST:
+    import tempfile
+    os.environ["LGALLERY_HOME"] = tempfile.mkdtemp(prefix="lgallery-selftest-")
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
 from backend import db, external  # noqa: E402
 from backend.collections import Collections  # noqa: E402
 from backend.controller import Gallery  # noqa: E402
@@ -113,6 +122,12 @@ def create_app(argv=None, files=None):
     QGuiApplication.setApplicationDisplayName("Gallery")
     QGuiApplication.setOrganizationName(APP_ID)
     QGuiApplication.setDesktopFileName(APP_ID)  # Wayland: match lgallery.desktop for the icon
+    if sys.platform == "win32":  # own taskbar group and icon instead of python.exe's
+        try:
+            import ctypes
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("LGallery.Gallery")
+        except (AttributeError, OSError):
+            pass
     # Basic is fully customisable; the KDE desktop style would override our One UI look.
     QQuickStyle.setStyle("Basic")
 
@@ -159,7 +174,46 @@ def create_app(argv=None, files=None):
     return app, engine, gallery
 
 
+def self_test() -> int:
+    """See SELF_TEST above. Writes a report next to the argument after --self-test, if any."""
+    from PySide6.QtCore import QTimer
+
+    from backend import FFMPEG, FFPROBE, __version__, printing
+
+    args = sys.argv[1:]
+    i = args.index("--self-test")
+    report_path = args[i + 1] if i + 1 < len(args) and not args[i + 1].startswith("-") else ""
+    lines, ok = [f"LGallery {__version__} self-test", f"python {sys.version.split()[0]}"], True
+    try:
+        app, engine, gallery = create_app([sys.argv[0]])
+        root = engine.rootObjects()[0]
+        QTimer.singleShot(1500, app.quit)
+        app.exec()
+        player = root.property("videoPlayer")
+        checks = {
+            "interface (QML)": root is not None,
+            "video playback (Qt Multimedia)": player is not None,
+            "printing (Qt Print Support)": printing.AVAILABLE,
+            "ffmpeg": bool(FFMPEG and FFPROBE),
+        }
+        for name, passed in checks.items():
+            lines.append(f"{'ok  ' if passed else 'FAIL'} {name}")
+            ok &= bool(passed)
+        gallery.shutdown()
+    except BaseException as exc:  # report anything, including SystemExit from create_app
+        lines.append(f"FAIL startup: {exc!r}")
+        ok = False
+    lines.append("PASSED" if ok else "FAILED")
+    text = "\n".join(lines)
+    print(text)
+    if report_path:
+        Path(report_path).write_text(text + "\n", encoding="utf-8")
+    return 0 if ok else 1
+
+
 def main():
+    if SELF_TEST:
+        sys.exit(self_test())
     args = sys.argv[1:]
     app = QGuiApplication.instance() or QGuiApplication(sys.argv)
     files = external.paths_from_args(args)

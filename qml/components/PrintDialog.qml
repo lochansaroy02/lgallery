@@ -247,7 +247,7 @@ Popup {
                             compact: true
                             text: qsTr("Change…")
                             onClicked: {
-                                pdfDialog.currentFile = "file://" + dlg.pdfPath
+                                pdfDialog.currentFile = gallery.pathToUrl(dlg.pdfPath)
                                 pdfDialog.open()
                             }
                         }
@@ -381,9 +381,6 @@ Popup {
         fileMode: FileDialog.SaveFile
         defaultSuffix: "pdf"
         nameFilters: [qsTr("PDF files (*.pdf)")]
-        onAccepted: {
-            var url = selectedFile.toString()
-            dlg.pdfPath = decodeURIComponent(url.replace(/^file:\/\//, ""))
-        }
+        onAccepted: dlg.pdfPath = gallery.urlToPath(selectedFile.toString())
     }
 }

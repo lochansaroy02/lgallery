@@ -43,6 +43,55 @@ cd lgallery && makepkg -si
 
 Optional extras: `sudo pacman -S python-pillow-heif python-opencv python-watchdog purpose` (HEIC photos, People, live updates, the KDE share menu).
 
+## Windows
+
+LGallery also runs on Windows 10 (1809 or newer) and 11, 64-bit.
+
+**Install:** download `LGallery-<version>-setup.exe` from the [Releases page](https://github.com/lochansaroy02/lgallery/releases) and run it.
+- No admin rights are needed: it installs for your user, or for everyone if you choose that on the first page.
+- It adds LGallery to the Start menu, and optionally to the desktop.
+- It adds LGallery to *Open with* for pictures and videos and to **Settings → Apps → Default apps**. Pick it there to open pictures from Explorer in LGallery.
+- The installer isn't code-signed yet, so Windows SmartScreen may warn the first time. Choose **More info → Run anyway**.
+- Uninstall from **Settings → Apps**. Your settings and index stay in `%APPDATA%\LGallery` and `%LOCALAPPDATA%\LGallery`; delete those folders to remove everything.
+
+**On Windows:**
+- *Delete* moves files to the Recycle Bin.
+- *Show in folder* opens Explorer with the file selected.
+- *Open with* shows Windows' own app chooser.
+- *Set as* sets the desktop wallpaper and the lock screen. Organisations can lock the lock screen through policy.
+- Video thumbnails and frame capture use the bundled ffmpeg.
+- The accent colour follows Windows' accent colour.
+- KDE-only parts (the global menu and the KDE share menu) are left out. *Share* offers *Copy to Clipboard*.
+
+### Building the Windows installer
+
+**On GitHub (no Windows PC needed):** the workflow in `.github/workflows/windows.yml` builds the installer on GitHub's Windows machines.
+- Push a version tag (`git tag v0.3.0 && git push origin v0.3.0`) and the installer is attached to that release.
+- Or run it by hand: **Actions → Windows build → Run workflow**. It builds without a release; download the installer from the run's *Artifacts*.
+
+**On a Windows PC:**
+
+```powershell
+winget install Python.Python.3.13 JRSoftware.InnoSetup Git.Git
+git clone https://github.com/lochansaroy02/lgallery.git
+cd lgallery
+powershell -ExecutionPolicy Bypass -File packaging\windows\build.ps1
+```
+
+Run `build.ps1` again later to rebuild; the downloads are reused.
+
+The result is `dist\LGallery-<version>-setup.exe`, plus the unpacked app in `dist\LGallery\LGallery.exe`. The script:
+1. makes `build\venv` and installs the Python packages;
+2. downloads ffmpeg (LGPL build) for video thumbnails;
+3. runs the unit tests;
+4. bundles everything with PyInstaller (`packaging/windows/lgallery.spec`);
+5. checks the bundled app with `LGallery.exe --self-test`: interface, video playback, printing and ffmpeg;
+6. builds the installer with Inno Setup (`packaging/windows/lgallery.iss`).
+
+Options: `-NoFaces` leaves out OpenCV (People), which saves about 40 MB. `-NoFfmpeg` leaves out video thumbnails. `-SkipTests` skips the unit tests, and `-NoInstaller` stops after `LGallery.exe`.
+
+The app icon is `packaging/windows/lgallery.ico`. It's made from `packaging/icon.svg` by `python packaging/windows/make_icon.py`.
+
 ## Install from source on Arch / Manjaro
 
 There are two ways to install LGallery as a KDE app from a checkout. Both add **Gallery** to the application launcher (under *Graphics*) with its own icon, so you can pin it to the panel or task manager like any other app.
@@ -392,6 +441,8 @@ backend/controller.py glue object exposed to QML as `gallery`
 backend/tasks.py      run work on the thread pool, get results on the GUI thread
 qml/                  Main.qml, Theme.qml (all colours/sizes), views, components/
 packaging/            .desktop file, icon, PKGBUILD, user install script
+packaging/aur/        AUR packages (lgallery, lgallery-git) and publish.sh
+packaging/windows/    Windows build: PyInstaller spec, Inno Setup script, build.ps1, icon
 tools/                sample generator, UI smoke test
 tests/                backend tests
 ```

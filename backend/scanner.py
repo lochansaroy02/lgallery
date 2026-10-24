@@ -15,9 +15,10 @@ from . import db, is_video, supported_exts, video
 log = logging.getLogger(__name__)
 
 SKIP_DIRS = {
-    "node_modules", "__pycache__", "lost+found", "$RECYCLE.BIN",
+    "node_modules", "__pycache__", "lost+found", "$RECYCLE.BIN", "$Recycle.Bin",
     "System Volume Information", "Trash", "trash",
 }
+_WIN_HIDDEN = 0x2 | 0x4  # FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM
 EXIF_IFD = 0x8769
 TAG_DATETIME_ORIGINAL = 36867
 TAG_DATETIME_DIGITIZED = 36868
@@ -79,6 +80,12 @@ def parse_gps(exif) -> tuple[float | None, float | None]:
 
 def should_skip_dir(name: str) -> bool:
     return name.startswith(".") or name in SKIP_DIRS or name.startswith(".Trash")
+
+
+def _hidden_on_windows(entry: os.DirEntry) -> bool:
+    """Folders Windows marks hidden or system (AppData, $Recycle.Bin, ...)."""
+    attrs = getattr(entry.stat(follow_symlinks=False), "st_file_attributes", 0)
+    return bool(attrs & _WIN_HIDDEN)
 
 
 def root_available(entry: dict) -> bool:
@@ -215,7 +222,8 @@ def scan_root(entry, min_size_kb=20, should_stop=lambda: False, progress=None) -
             for e in entries:
                 try:
                     if e.is_dir(follow_symlinks=False):
-                        if not should_skip_dir(e.name) and e.path not in excluded:
+                        if (not should_skip_dir(e.name) and e.path not in excluded
+                                and not _hidden_on_windows(e)):
                             stack.append(e.path)
                         continue
                     if os.path.splitext(e.name)[1].lower() not in exts:

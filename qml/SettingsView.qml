@@ -185,7 +185,9 @@ Item {
                 title: qsTr("Default app")
                 SettingRow {
                     title: qsTr("Default image viewer")
-                    subtitle: gallery.defaultViewer === "default"
+                    subtitle: gallery.defaultViewer === "windows"
+                              ? qsTr("Choose LGallery for your picture types in Windows Settings › Default apps")
+                              : gallery.defaultViewer === "default"
                               ? qsTr("Pictures you open in Dolphin or any file manager open in Gallery")
                               : gallery.defaultViewer === "not-installed"
                               ? qsTr("Install the launcher first (packaging/install-user.sh or the Arch package)")
@@ -195,7 +197,8 @@ Item {
                     PillButton {
                         compact: true
                         kind: gallery.defaultViewer === "default" ? "tonal" : "filled"
-                        text: gallery.defaultViewer === "default" ? qsTr("Is default") : qsTr("Set as default")
+                        text: gallery.defaultViewer === "default" ? qsTr("Is default")
+                            : gallery.defaultViewer === "windows" ? qsTr("Open settings") : qsTr("Set as default")
                         enabled: gallery.defaultViewer !== "default" && gallery.defaultViewer !== "not-installed"
                                  && gallery.defaultViewer !== ""
                         onClicked: gallery.setAsDefaultViewer()

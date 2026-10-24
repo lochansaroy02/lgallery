@@ -15,6 +15,7 @@ from urllib.parse import quote
 from PySide6.QtCore import QMimeData, QMimeDatabase, QUrl
 from PySide6.QtGui import QDesktopServices, QGuiApplication
 
+from . import IS_WINDOWS, NO_WINDOW
 from .settings import mount_point
 
 log = logging.getLogger(__name__)
@@ -83,7 +84,9 @@ def trash_files(paths: list[str]) -> tuple[list[str], list[str]]:
                 trashed.append(p)  # already gone: just drop it from the index
                 continue
             if _send2trash is not None:
-                _send2trash(p)
+                _send2trash(p)  # Recycle Bin on Windows, freedesktop trash on Linux
+            elif IS_WINDOWS:
+                raise RuntimeError("the Recycle Bin needs send2trash (bundled with the installer)")
             else:
                 freedesktop_trash(p)
             trashed.append(p)
@@ -115,7 +118,11 @@ def open_default(path: str) -> bool:
 
 
 def show_in_folder_blocking(path: str) -> bool:
-    """Ask the file manager (Dolphin) to open the folder with the file selected."""
+    """Ask the file manager (Dolphin, Explorer, Finder) to open the folder with the file selected."""
+    if IS_WINDOWS:
+        # explorer.exe exits with 1 even when it worked
+        subprocess.Popen(["explorer", "/select,", os.path.normpath(path)], **NO_WINDOW)
+        return True
     if sys.platform == "darwin":
         return subprocess.run(["open", "-R", path], timeout=5).returncode == 0
     if shutil.which("dbus-send"):
@@ -188,6 +195,21 @@ def _read_desktop(path: str) -> dict | None:
     return dict(entry)
 
 
+def windows_open_with(path: str) -> bool:
+    """Windows' own "Open with" chooser for a file."""
+    try:
+        subprocess.Popen(["rundll32.exe", "shell32.dll,OpenAs_RunDLL", os.path.normpath(path)], **NO_WINDOW)
+        return True
+    except OSError as exc:
+        log.warning("Open with failed for %s: %s", path, exc)
+        return False
+
+
+def windows_default_apps() -> bool:
+    """Windows Settings > Default apps, on LGallery's page when Windows 11 supports it."""
+    return QDesktopServices.openUrl(QUrl("ms-settings:defaultapps?registeredAppUser=LGallery"))
+
+
 def launch_desktop_app(desktop_file: str, paths: list[str]) -> bool:
     entry = _read_desktop(desktop_file)
     if not entry:
@@ -248,7 +270,10 @@ def desktop_file_installed() -> bool:
 
 
 def default_viewer_status(mimes: list[str]) -> str:
-    """"default" | "partial" | "other" | "not-installed" (no lgallery.desktop to point at)."""
+    """"default" | "partial" | "other" | "not-installed" (no lgallery.desktop to point at),
+    or "windows" (Windows decides in Settings > Default apps)."""
+    if IS_WINDOWS:
+        return "windows"
     if not desktop_file_installed():
         return "not-installed"
     parser = _read_mimeapps()

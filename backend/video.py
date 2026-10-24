@@ -20,7 +20,7 @@ from typing import NamedTuple
 
 from PIL import Image, ImageDraw
 
-from . import FFMPEG, FFPROBE
+from . import FFMPEG, FFPROBE, NO_WINDOW
 
 log = logging.getLogger(__name__)
 
@@ -97,7 +97,7 @@ def _ffprobe(path: str) -> VideoMeta | None:
     try:
         out = subprocess.run(
             [FFPROBE, "-v", "error", "-print_format", "json", "-show_format", "-show_streams", path],
-            capture_output=True, timeout=PROBE_TIMEOUT, check=False, stdin=subprocess.DEVNULL)
+            capture_output=True, timeout=PROBE_TIMEOUT, check=False, stdin=subprocess.DEVNULL, **NO_WINDOW)
         data = json.loads(out.stdout or b"{}")
     except (OSError, subprocess.SubprocessError, ValueError) as exc:
         log.debug("ffprobe %s: %s", path, exc)
@@ -247,7 +247,7 @@ def _ffmpeg_frame(path: str, at: float, width: int, height: int) -> Image.Image 
            "-frames:v", "1", "-vf", scale, "-f", "image2pipe", "-c:v", "png", "-"]
     try:
         out = subprocess.run(cmd, capture_output=True, timeout=FRAME_TIMEOUT, check=False,
-                             stdin=subprocess.DEVNULL)
+                             stdin=subprocess.DEVNULL, **NO_WINDOW)
     except (OSError, subprocess.SubprocessError) as exc:
         log.debug("ffmpeg %s: %s", path, exc)
         return None
@@ -304,7 +304,7 @@ def frame_at(path: str, ms: int) -> Image.Image:
            "-frames:v", "1", "-f", "image2pipe", "-c:v", "png", "-"]
     try:
         out = subprocess.run(cmd, capture_output=True, timeout=FRAME_TIMEOUT, check=False,
-                             stdin=subprocess.DEVNULL)
+                             stdin=subprocess.DEVNULL, **NO_WINDOW)
     except (OSError, subprocess.SubprocessError) as exc:
         raise RuntimeError(f"ffmpeg failed: {exc}") from exc
     if not out.stdout and at > 0.05:  # asked for the very end: take the last frame instead

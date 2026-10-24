@@ -12,7 +12,7 @@ from PySide6.QtCore import (
 from PySide6.QtGui import QGuiApplication, QPalette
 
 from . import (
-    PROJECT_URL, __version__, CACHE_DIR, CONFIG_PATH, DATA_DIR, DB_PATH, FFMPEG, HEIF_SUPPORTED, actions, desktop, printing, db, external, share, thumbs,
+    PROJECT_URL, __version__, CACHE_DIR, CONFIG_PATH, DATA_DIR, DB_PATH, FFMPEG, HEIF_SUPPORTED, IS_WINDOWS, actions, desktop, printing, db, external, share, thumbs,
 )
 from .models import AlbumModel, PhotoModel, format_size
 from .scanner import ScanThread, root_available
@@ -181,7 +181,8 @@ class Gallery(QObject):
         if not accent:
             palette = QGuiApplication.palette()
             role = getattr(QPalette.ColorRole, "Accent", QPalette.ColorRole.Highlight)
-            accent = palette.color(role).name() if sys.platform == "linux" else ""
+            # Qt reads the desktop's accent colour on Linux and Windows
+            accent = palette.color(role).name() if sys.platform in ("linux", "win32") else ""
         if accent != self._system_accent:
             self._system_accent = accent
             self.systemAccentChanged.emit()
@@ -664,7 +665,7 @@ class Gallery(QObject):
     @Property(bool, constant=True)
     def wallpaperSupported(self):
         import shutil
-        return bool(shutil.which("plasma-apply-wallpaperimage") or shutil.which("kwriteconfig6")
+        return bool(IS_WINDOWS or shutil.which("plasma-apply-wallpaperimage") or shutil.which("kwriteconfig6")
                     or shutil.which("kwriteconfig5") or shutil.which("gsettings")
                     or sys.platform == "darwin")
 
@@ -708,6 +709,16 @@ class Gallery(QObject):
 
         self.toast.emit("Saving PDF…" if opts.get("printer") == printing.PDF else "Printing…")
         run_async(printing.print_image, path, opts, on_done=self.toast.emit, on_error=failed)
+
+    @Slot(str, result=str)
+    def pathToUrl(self, path):
+        """file:// URL of a local path (file:///C:/... on Windows)."""
+        return QUrl.fromLocalFile(path).toString()
+
+    @Slot(str, result=str)
+    def urlToPath(self, url):
+        """Native local path of a file:// URL (C:\\... on Windows)."""
+        return os.path.normpath(QUrl(url).toLocalFile()) if url.startswith("file:") else url
 
     @Slot(str, result=str)
     def defaultPdfPath(self, path):
@@ -769,8 +780,22 @@ class Gallery(QObject):
 
         run_async(actions.default_viewer_status, self._viewer_mimes(), on_done=done)
 
+    @Property(bool, constant=True)
+    def isWindows(self):
+        return IS_WINDOWS
+
+    @Slot(str)
+    def openWithDialog(self, path):
+        """The system's own "Open with" chooser (Windows)."""
+        if not actions.windows_open_with(path):
+            self.toast.emit("Couldn't open the Open with dialog")
+
     @Slot()
     def setAsDefaultViewer(self):
+        if IS_WINDOWS:  # Windows lets only the user choose: open Settings > Default apps
+            if not actions.windows_default_apps():
+                self.toast.emit("Open Settings > Apps > Default apps and choose LGallery")
+            return
         def done(_):
             self.toast.emit("Gallery is now your default image viewer")
             self.refreshDefaultViewer()

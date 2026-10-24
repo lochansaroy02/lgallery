@@ -5,7 +5,12 @@ PROJECT_URL = "https://github.com/lochansaroy02/lgallery"
 
 import os
 import shutil
+import sys
 from pathlib import Path
+
+IS_WINDOWS = sys.platform == "win32"
+# folder of the bundled app (PyInstaller sets sys.frozen / sys._MEIPASS)
+APP_DIR = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent))
 
 
 def _xdg(var: str, fallback: str) -> Path:
@@ -19,6 +24,12 @@ if _home:
     CONFIG_DIR = Path(_home) / "config"
     DATA_DIR = Path(_home) / "data"
     CACHE_DIR = Path(_home) / "cache"
+elif IS_WINDOWS:  # %APPDATA%\LGallery (settings), %LOCALAPPDATA%\LGallery (index, cache)
+    _roaming = Path(os.environ.get("APPDATA") or Path.home() / "AppData" / "Roaming")
+    _local = Path(os.environ.get("LOCALAPPDATA") or Path.home() / "AppData" / "Local")
+    CONFIG_DIR = _roaming / "LGallery"
+    DATA_DIR = _local / "LGallery"
+    CACHE_DIR = _local / "LGallery" / "cache"
 else:
     CONFIG_DIR = _xdg("XDG_CONFIG_HOME", ".config") / "lgallery"
     DATA_DIR = _xdg("XDG_DATA_HOME", ".local/share") / "lgallery"
@@ -35,8 +46,20 @@ VIDEO_EXTS = {".mp4", ".m4v", ".mov", ".mkv", ".webm", ".avi", ".3gp", ".mts", "
 
 # Video posters, thumbnails and metadata come from the system ffmpeg when it is installed
 # (sudo pacman -S ffmpeg). Without it MP4/MOV dates still come from the file itself.
-FFMPEG = shutil.which("ffmpeg")
-FFPROBE = shutil.which("ffprobe")
+def _find_tool(name: str) -> str | None:
+    """A copy bundled with the app (the Windows build has an ffmpeg folder) first."""
+    for folder in (APP_DIR / "ffmpeg", APP_DIR):
+        for candidate in (folder / f"{name}.exe", folder / name):
+            if candidate.is_file():
+                return str(candidate)
+    return shutil.which(name)
+
+
+# keyword arguments for subprocess calls: no console window flashing up on Windows
+NO_WINDOW = {"creationflags": 0x08000000} if IS_WINDOWS else {}  # CREATE_NO_WINDOW
+
+FFMPEG = _find_tool("ffmpeg")
+FFPROBE = _find_tool("ffprobe")
 
 try:
     from pillow_heif import register_heif_opener

@@ -102,7 +102,11 @@ ApplicationWindow {
         standalone = false
         viewer.close()
     }
-    function openWith(paths) { if (paths.length) openWithPopup.show(paths) }
+    function openWith(paths) {
+        if (!paths.length) return
+        if (gallery.isWindows) gallery.openWithDialog(paths[0])   // Windows' own chooser
+        else openWithPopup.show(paths)
+    }
     function share(paths, anchor, done) { if (paths.length) shareMenu.openFor(paths, anchor, done) }
     function addFolder() { folderDialog.open() }
     function showToast(message) { toast.show(message) }

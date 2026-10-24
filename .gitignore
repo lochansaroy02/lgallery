@@ -10,3 +10,5 @@ ui-shots/
 packaging/pkg/
 packaging/src/
 packaging/*.pkg.tar.*
+/build/
+/dist/

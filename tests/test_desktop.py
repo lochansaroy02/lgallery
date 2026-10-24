@@ -43,6 +43,20 @@ class WallpaperTests(unittest.TestCase):
         patcher = mock.patch.object(desktop, "_run", side_effect=lambda cmd: self.calls.append(cmd))
         patcher.start()
         self.addCleanup(patcher.stop)
+        # never reach the real Windows APIs (they would change this PC's wallpaper)
+        for name in ("_windows_desktop", "_windows_lockscreen"):
+            p = mock.patch.object(desktop, name, side_effect=lambda image, n=name: self.calls.append([n, image]))
+            p.start()
+            self.addCleanup(p.stop)
+        p = mock.patch.object(desktop, "IS_WINDOWS", False)
+        p.start()
+        self.addCleanup(p.stop)
+
+    def test_windows_calls(self):
+        with mock.patch.object(desktop, "IS_WINDOWS", True):
+            desktop.apply(photo("win.jpg"), "both")
+        self.assertEqual([c[0] for c in self.calls], ["_windows_desktop", "_windows_lockscreen"])
+        self.assertTrue(self.calls[0][1].endswith(".jpg"))
 
     def which(self, available):
         return mock.patch.object(desktop.shutil, "which",

@@ -1,8 +1,9 @@
 """Set a picture as the desktop wallpaper and / or the lock screen background.
 
 KDE Plasma: `plasma-apply-wallpaperimage` for the desktop (every screen) and
-kscreenlockerrc (via kwriteconfig6 / kwriteconfig5) for the lock screen. GNOME and
-macOS are handled too, so the action also works outside Plasma.
+kscreenlockerrc (via kwriteconfig6 / kwriteconfig5) for the lock screen. Windows:
+SystemParametersInfo for the desktop and the WinRT LockScreen API (through PowerShell)
+for the lock screen. GNOME and macOS desktops are handled too.
 
 The picture is first copied (upright, as JPEG or PNG) to ~/.local/share/lgallery/wallpapers,
 so the wallpaper keeps working when the original is edited, moved, deleted or on a drive
@@ -18,7 +19,7 @@ import sys
 
 from PIL import Image, ImageOps
 
-from . import DATA_DIR
+from . import DATA_DIR, IS_WINDOWS, NO_WINDOW
 
 log = logging.getLogger(__name__)
 
@@ -36,7 +37,7 @@ class WallpaperError(RuntimeError):
 def _run(cmd: list[str]) -> None:
     try:
         out = subprocess.run(cmd, capture_output=True, text=True, timeout=TIMEOUT,
-                             stdin=subprocess.DEVNULL)
+                             stdin=subprocess.DEVNULL, **NO_WINDOW)
     except (OSError, subprocess.SubprocessError) as exc:
         raise WallpaperError(f"{os.path.basename(cmd[0])} failed: {exc}") from exc
     if out.returncode != 0:
@@ -80,13 +81,57 @@ def _prune(keep) -> None:
                 pass
 
 
+# Windows lock screen: Windows.System.UserProfile.LockScreen.SetImageFileAsync (WinRT),
+# reachable from the built-in Windows PowerShell 5.1. The path comes in $env:LG_IMAGE.
+_WIN_LOCKSCREEN_PS = r"""
+$ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName System.Runtime.WindowsRuntime
+$methods = [System.WindowsRuntimeSystemExtensions].GetMethods()
+$asTaskAction = $methods | Where-Object { $_.Name -eq 'AsTask' -and $_.GetParameters().Count -eq 1 -and $_.GetParameters()[0].ParameterType.Name -eq 'IAsyncAction' } | Select-Object -First 1
+$asTaskOp = $methods | Where-Object { $_.Name -eq 'AsTask' -and $_.GetParameters().Count -eq 1 -and $_.GetParameters()[0].ParameterType.Name -eq 'IAsyncOperation`1' } | Select-Object -First 1
+[void][Windows.Storage.StorageFile, Windows.Storage, ContentType = WindowsRuntime]
+[void][Windows.System.UserProfile.LockScreen, Windows.System.UserProfile, ContentType = WindowsRuntime]
+$op = [Windows.Storage.StorageFile]::GetFileFromPathAsync($env:LG_IMAGE)
+$file = $asTaskOp.MakeGenericMethod([Windows.Storage.StorageFile]).Invoke($null, @($op)).Result
+$asTaskAction.Invoke($null, @([Windows.System.UserProfile.LockScreen]::SetImageFileAsync($file))).Wait()
+"""
+
+
+def _windows_desktop(image: str) -> None:
+    import ctypes
+
+    SPI_SETDESKWALLPAPER, SPIF_UPDATEINIFILE, SPIF_SENDCHANGE = 0x0014, 0x01, 0x02
+    ok = ctypes.windll.user32.SystemParametersInfoW(
+        SPI_SETDESKWALLPAPER, 0, image, SPIF_UPDATEINIFILE | SPIF_SENDCHANGE)
+    if not ok:
+        raise WallpaperError("Windows refused the wallpaper")
+
+
+def _windows_lockscreen(image: str) -> None:
+    shell = shutil.which("powershell") or "powershell.exe"
+    env = dict(os.environ, LG_IMAGE=image)
+    try:
+        out = subprocess.run([shell, "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
+                              "-Command", _WIN_LOCKSCREEN_PS],
+                             capture_output=True, text=True, timeout=TIMEOUT, env=env,
+                             stdin=subprocess.DEVNULL, **NO_WINDOW)
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise WallpaperError(f"PowerShell failed: {exc}") from exc
+    if out.returncode != 0:
+        detail = (out.stderr or out.stdout).strip().splitlines()
+        raise WallpaperError("Couldn't set the lock screen" + (f": {detail[0]}" if detail else "")
+                             + " (it may be managed by your organisation)")
+
+
 def _gsettings_available() -> bool:
     return bool(shutil.which("gsettings")) and "GNOME" in os.environ.get("XDG_CURRENT_DESKTOP", "").upper()
 
 
 def set_desktop(image: str) -> None:
     uri = "file://" + image
-    if shutil.which("plasma-apply-wallpaperimage"):
+    if IS_WINDOWS:
+        _windows_desktop(image)
+    elif shutil.which("plasma-apply-wallpaperimage"):
         _run(["plasma-apply-wallpaperimage", image])
     elif _gsettings_available():
         _run(["gsettings", "set", "org.gnome.desktop.background", "picture-uri", uri])
@@ -100,8 +145,10 @@ def set_desktop(image: str) -> None:
 
 def set_lockscreen(image: str) -> None:
     uri = "file://" + image
-    kwc = shutil.which("kwriteconfig6") or shutil.which("kwriteconfig5")
-    if kwc:
+    kwc = None if IS_WINDOWS else shutil.which("kwriteconfig6") or shutil.which("kwriteconfig5")
+    if IS_WINDOWS:
+        _windows_lockscreen(image)
+    elif kwc:
         base = [kwc, "--file", "kscreenlockerrc", "--group", "Greeter"]
         _run(base + ["--key", "WallpaperPlugin", "org.kde.image"])
         image_group = base + ["--group", "Wallpaper", "--group", "org.kde.image", "--group", "General"]
