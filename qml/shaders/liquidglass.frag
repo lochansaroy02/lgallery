@@ -1,7 +1,8 @@
-// Liquid glass for the floating navigation bar (compiled to liquidglass.frag.qsb, see
-// qml/shaders/build.sh). `source` is what lies behind the bar, already blurred as wanted
-// (strongly for "frosted", lightly for "clear"), captured with `pad` pixels to spare on
-// every side so the rim can bend light in from just outside the bar.
+// Liquid glass for the floating navigation bar and its active-item indicator (compiled to
+// liquidglass.frag.qsb, see qml/shaders/build.sh). `source` is what lies behind the bar,
+// already blurred as wanted (strongly for "frosted", lightly for "clear"), captured with
+// spare pixels on every side so a rim can bend light in from just outside it. Each glass
+// piece says where it sits in that capture (`origin`), so the bar and the indicator share it.
 #version 440
 
 layout(location = 0) in vec2 qt_TexCoord0;
@@ -10,9 +11,10 @@ layout(location = 0) out vec4 fragColor;
 layout(std140, binding = 0) uniform buf {
     mat4 qt_Matrix;
     float qt_Opacity;
-    vec2 barSize;       // bar size in pixels
-    float barRadius;    // corner radius in pixels
-    float pad;          // spare pixels captured around the bar
+    vec2 barSize;       // size of this glass piece in pixels
+    float barRadius;    // its corner radius in pixels
+    vec2 origin;        // its top-left corner in the captured background, in pixels
+    vec2 sourceSize;    // size of the captured background in pixels
     float edge;         // width of the refracting rim in pixels
     float refraction;   // 0..1: how strongly the rim bends what is behind
     float dispersion;   // pixels of colour fringing at the rim
@@ -41,9 +43,8 @@ void main() {
     // 0 at the rim, 1 once `edge` pixels inside: the glass is thickest (bends most) at the rim
     float inner = clamp(-d / max(edge, 1.0), 0.0, 1.0);
     float rimBend = (1.0 - inner) * (1.0 - inner);
-    vec2 total = barSize + 2.0 * pad;
-    vec2 at = (qt_TexCoord0 * barSize + pad - n * rimBend * refraction * edge) / total;
-    vec2 fringe = n * dispersion * rimBend / total;
+    vec2 at = (origin + qt_TexCoord0 * barSize - n * rimBend * refraction * edge) / sourceSize;
+    vec2 fringe = n * dispersion * rimBend / sourceSize;
 
     vec3 colour = vec3(texture(source, at - fringe).r,
                        texture(source, at).g,

@@ -87,7 +87,8 @@ Item {
             property var source: blurredTexture
             property size barSize: Qt.size(width, height)
             property real barRadius: height / 2
-            property real pad: nav.glassPad
+            property point origin: Qt.point(nav.glassPad, nav.glassPad)
+            property size sourceSize: Qt.size(behind.width, behind.height)
             property real edge: nav.frosted ? 14 : 16
             property real refraction: nav.frosted ? 0.55 : 0.85
             property real dispersion: nav.frosted ? 0.6 : 1.8
@@ -105,9 +106,33 @@ Item {
             height: parent.height - 12
             width: nav.itemWidth
             radius: height / 2
-            color: Theme.accentSoft
+            // glass styles: a tinted glass droplet instead of the solid tint (same colour)
+            color: indicatorGlass.visible ? "transparent" : Theme.accentSoft
             x: 6 + nav.currentIndex * nav.itemWidth
             Behavior on x { NumberAnimation { duration: Theme.durSlow; easing.type: Theme.easing } }
+
+            ShaderEffect {
+                id: indicatorGlass
+                anchors.fill: parent
+                visible: glassEffect.visible && status !== ShaderEffect.Error
+                property var source: blurredTexture
+                property size barSize: Qt.size(width, height)
+                property real barRadius: height / 2
+                // where the droplet sits in the captured background (it slides with the indicator)
+                property point origin: Qt.point(nav.glassPad + indicator.x, nav.glassPad + indicator.y)
+                property size sourceSize: Qt.size(behind.width, behind.height)
+                property real edge: height * 0.38
+                property real refraction: 1.0
+                property real dispersion: nav.frosted ? 0.8 : 1.4
+                property real highlight: Theme.dark ? 0.26 : 0.42
+                // the solid indicator's soft accent colour, laid over the glass: same colour, and the
+                // accent label on top stays readable over busy pictures
+                readonly property color soft: Theme.tinted ? Theme.accentSoft
+                    : Qt.tint(Theme.dark ? "#26262a" : "#ffffff",
+                              Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, Theme.dark ? 0.34 : 0.20))
+                property vector4d tint: Qt.vector4d(soft.r, soft.g, soft.b, nav.frosted ? 0.70 : 0.62)
+                fragmentShader: "../shaders/liquidglass.frag.qsb"
+            }
         }
         Row {
             x: 6
