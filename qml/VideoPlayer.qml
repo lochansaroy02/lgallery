@@ -95,7 +95,7 @@ Item {
                                Math.max(8, Math.min(y, height - moreMenu.height - 8)))
     }
     function captureFrame() {
-        if (!info.path || !gallery.videoThumbnailsSupported) return
+        if (!info.path || !gallery.videoThumbnailsSupported || info.private) return
         gallery.captureFrame(info.path, position)
         flash.show("camera")
         shutter.restart()
@@ -341,17 +341,18 @@ Item {
                     onClicked: moreMenu.popup(moreButton, moreButton.width - moreMenu.width, moreButton.height + 4)
                     StyledMenu {
                         id: moreMenu
-                        AppMenuItem { text: qsTr("Open with…"); iconName: "openWith"; onTriggered: player.win.openWith([player.info.path]) }
-                        AppMenuItem { text: qsTr("Open in default app"); iconName: "monitor"; onTriggered: gallery.openExternally(player.info.path) }
-                        AppMenuItem { text: qsTr("Show in folder"); iconName: "showFolder"; onTriggered: gallery.showInFolder(player.info.path) }
+                        AppMenuItem { text: qsTr("Open with…"); iconName: "openWith"; visible: !player.info.private; onTriggered: player.win.openWith([player.info.path]) }
+                        AppMenuItem { text: qsTr("Open in default app"); iconName: "monitor"; visible: !player.info.private; onTriggered: gallery.openExternally(player.info.path) }
+                        AppMenuItem { text: qsTr("Show in folder"); iconName: "showFolder"; visible: !player.info.private; onTriggered: gallery.showInFolder(player.info.path) }
                         AppMenuItem {
                             text: qsTr("Capture frame"); iconName: "camera"; shortcutText: "S"
+                            visible: !player.info.private
                             enabled: gallery.videoThumbnailsSupported
                             onTriggered: player.captureFrame()
                         }
                         MenuDivider { }
-                        AppMenuItem { text: qsTr("Copy video"); iconName: "copy"; onTriggered: gallery.shareFiles([player.info.path]) }
-                        AppMenuItem { text: qsTr("Copy path"); iconName: "file"; onTriggered: gallery.copyPaths([player.info.path]) }
+                        AppMenuItem { text: qsTr("Copy video"); iconName: "copy"; visible: !player.info.private; onTriggered: gallery.shareFiles([player.info.path]) }
+                        AppMenuItem { text: qsTr("Copy path"); iconName: "file"; visible: !player.info.private; onTriggered: gallery.copyPaths([player.info.path]) }
                     }
                 }
             }
@@ -626,6 +627,7 @@ Item {
                     }
                     IconButton {
                         icon: "camera"
+                        visible: player.info.private !== true
                         color: "white"
                         onDark: true
                         enabled: gallery.videoThumbnailsSupported

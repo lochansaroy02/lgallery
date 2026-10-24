@@ -109,12 +109,13 @@ Rectangle {
         }
         Field { icon: "drive"; label: qsTr("Size"); value: panel.info.size || "" }
         Field {
-            icon: "folder"
-            label: panel.info.available === false ? qsTr("Path (drive not available)") : qsTr("Path")
-            value: panel.info.path || ""
+            icon: panel.info.private ? "lock" : "folder"
+            label: panel.info.private ? qsTr("Stored in") : panel.info.available === false ? qsTr("Path (drive not available)") : qsTr("Path")
+            value: panel.info.private ? qsTr("Private album (encrypted)") : panel.info.path || ""
         }
 
         Row {
+            visible: panel.info.private !== true
             spacing: Theme.s2
             PillButton {
                 compact: true

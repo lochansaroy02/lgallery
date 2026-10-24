@@ -9,7 +9,7 @@ description = "A One UI-style photo gallery for Linux / KDE Plasma"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
-dependencies = ["PySide6>=6.6", "Pillow>=10.0"]
+dependencies = ["PySide6>=6.6", "Pillow>=10.0", "cryptography>=41"]
 
 [project.optional-dependencies]
 heif = ["pillow-heif>=0.16"]

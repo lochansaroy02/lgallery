@@ -31,6 +31,7 @@ from backend import db, external  # noqa: E402
 from backend.collections import Collections  # noqa: E402
 from backend.controller import Gallery  # noqa: E402
 from backend.editor import EditImageProvider, Editor  # noqa: E402
+from backend.private import PrivateAlbum, PrivateImageProvider  # noqa: E402
 from backend.settings import Settings  # noqa: E402
 from backend.thumbs import ImageProvider  # noqa: E402
 
@@ -141,6 +142,7 @@ def create_app(argv=None, files=None):
     gallery = Gallery(settings, app)
     collections = Collections(gallery, settings, app)
     editor = Editor(app)
+    private_album = PrivateAlbum(gallery, settings, app)
     editor.libraryChanged.connect(gallery.reloadLibrary)
     editor.message.connect(gallery.toast)
 
@@ -150,6 +152,7 @@ def create_app(argv=None, files=None):
     engine.addImageProvider("faces", ImageProvider("faces", threads=2))
     engine.addImageProvider("icon", ThemeIconProvider())
     engine.addImageProvider("edit", EditImageProvider(editor))
+    engine.addImageProvider("private", PrivateImageProvider(private_album.vault))
 
     ctx = engine.rootContext()
     ctx.setContextProperty("gallery", gallery)
@@ -163,12 +166,15 @@ def create_app(argv=None, files=None):
     ctx.setContextProperty("launchedWithFiles", bool(files))
     ctx.setContextProperty("editor", editor)
     ctx.setContextProperty("collections", collections)
+    ctx.setContextProperty("privateAlbum", private_album)
+    ctx.setContextProperty("privatePhotos", private_album.photos)
 
     engine.load(QUrl.fromLocalFile(str(HERE / "qml" / "Main.qml")))
     if not engine.rootObjects():
         raise SystemExit("Failed to load the QML user interface (see errors above).")
     app.aboutToQuit.connect(gallery.shutdown)
     app.aboutToQuit.connect(collections.shutdown)
+    app.aboutToQuit.connect(private_album.shutdown)
     if files:
         gallery.openFiles(files)
     return app, engine, gallery
@@ -178,7 +184,7 @@ def self_test() -> int:
     """See SELF_TEST above. Writes a report next to the argument after --self-test, if any."""
     from PySide6.QtCore import QTimer
 
-    from backend import FFMPEG, FFPROBE, __version__, printing
+    from backend import FFMPEG, FFPROBE, __version__, printing, vault
 
     args = sys.argv[1:]
     i = args.index("--self-test")
@@ -194,6 +200,7 @@ def self_test() -> int:
             "interface (QML)": root is not None,
             "video playback (Qt Multimedia)": player is not None,
             "printing (Qt Print Support)": printing.AVAILABLE,
+            "private album (cryptography)": vault.AVAILABLE,
             "ffmpeg": bool(FFMPEG and FFPROBE),
         }
         for name, passed in checks.items():

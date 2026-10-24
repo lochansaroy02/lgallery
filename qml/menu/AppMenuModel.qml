@@ -17,9 +17,15 @@ QtObject {
     readonly property var grid: win ? win.currentGrid : null
     readonly property bool selecting: !viewing && !editing && grid !== null && grid.selectMode
                                       && grid.photoModel.selectionCount > 0
-    readonly property bool hasContext: editing || (viewing && !!viewer.info.path) || selecting
+    // inside the private album: no sharing, opening elsewhere, copying, editing...
+    readonly property bool inPrivate: (viewing && viewer.info.private === true)
+                                      || (!viewing && grid !== null && grid.photoModel === privatePhotos)
+    readonly property bool hasContext: !inPrivate && (editing || (viewing && !!viewer.info.path) || selecting)
+    readonly property bool privateContext: inPrivate && ((viewing && !!viewer.info.path)
+                                                         || (selecting && grid.photoModel === privatePhotos))
     readonly property bool viewingLibraryPicture: viewing && viewer.info.external !== true
     readonly property bool viewingPicture: viewing && viewer.info.video !== true && viewer.info.available === true
+                                           && viewer.info.private !== true
     readonly property bool canRotate: hasContext && !editing && !(viewing && viewer.info.available === false)
                                       && !(viewing && viewer.info.video === true)
 
@@ -46,6 +52,11 @@ QtObject {
         finishSelection()
     }
     function trash() {
+        if (privateContext) {
+            const ids = viewing ? [viewer.info.id] : grid.photoModel.selectedIds()
+            win.deletePrivate(ids, viewing ? null : function() { finishSelection() })
+            return
+        }
         if (!hasContext || editing) return
         const done = viewing ? null : function() { finishSelection() }
         win.confirmDelete(paths(), done)
@@ -169,8 +180,8 @@ QtObject {
                 onTriggered: gallery.rescan()
             }
             MenuSpec {
-                text: qsTr("Move to Trash"); shortcut: "Del"
-                enabled: app.hasContext && !app.editing
+                text: app.inPrivate ? qsTr("Delete Permanently") : qsTr("Move to Trash"); shortcut: "Del"
+                enabled: (app.hasContext || app.privateContext) && !app.editing
                 onTriggered: app.trash()
             }
             MenuSpec { separator: true }
@@ -215,7 +226,7 @@ QtObject {
             MenuSpec {
                 text: qsTr("Edit Picture…"); shortcut: "E"
                 enabled: app.viewing && app.viewer.info.available === true && app.viewer.info.animated !== true
-                         && app.viewer.info.video !== true
+                         && app.viewer.info.video !== true && !app.inPrivate
                 onTriggered: win.openEditor(app.viewer.info)
             }
             MenuSpec {
@@ -227,8 +238,21 @@ QtObject {
             MenuSpec {
                 text: app.viewing && app.viewer.info.favorite ? qsTr("Remove from Favorites") : qsTr("Add to Favorites")
                 shortcut: "F"
-                enabled: app.viewingLibraryPicture || app.selecting
+                enabled: (app.viewingLibraryPicture || app.selecting) && !app.inPrivate
                 onTriggered: app.toggleFavorite()
+            }
+            MenuSpec { separator: true }
+            MenuSpec {
+                text: qsTr("Move to Private Album"); shortcut: "Ctrl+Shift+H"; bindKey: true
+                enabled: app.hasContext && !app.editing && privateAlbum.supported
+                onTriggered: win.moveToPrivate(app.paths(), function() { app.finishSelection() })
+            }
+            MenuSpec {
+                text: qsTr("Move out of Private Album")
+                visible: app.inPrivate
+                enabled: app.privateContext
+                onTriggered: win.moveOutOfPrivate(app.viewing ? [app.viewer.info.id] : app.grid.photoModel.selectedIds(),
+                                                  app.viewing ? null : function() { app.finishSelection() })
             }
             MenuSpec {
                 text: qsTr("Revert to Original")
@@ -265,6 +289,11 @@ QtObject {
                 text: qsTr("Folders"); shortcut: "Ctrl+5"; bindKey: true
                 checkable: true; checked: win !== null && win.currentTab === 4
                 onTriggered: win.goTab(4)
+            }
+            MenuSpec {
+                text: qsTr("Private Album")
+                enabled: !app.editing && privateAlbum.supported
+                onTriggered: win.openPrivateAlbum()
             }
             MenuSpec { separator: true }
             MenuSpec {
@@ -318,7 +347,7 @@ QtObject {
             MenuSpec {
                 text: qsTr("Capture Frame"); shortcut: "S"
                 visible: app.viewing && app.viewer.isVideo
-                enabled: app.viewing && app.viewer.isVideo && gallery.videoThumbnailsSupported
+                enabled: app.viewing && app.viewer.isVideo && gallery.videoThumbnailsSupported && !app.inPrivate
                 onTriggered: app.viewer.captureFrame()
             }
             MenuSpec { separator: true; visible: app.viewing && app.viewer.isVideo }
@@ -375,7 +404,7 @@ QtObject {
                 text: qsTr("Albums")
                 submenu: true
                 enabled: !app.editing && albums.count > 0
-                model: albums.entries.map(a => ({ text: a.title + "  ·  " + a.count, value: a }))
+                model: albums.entries.map(a => ({ text: a.kind === "private" ? a.title : a.title + "  ·  " + a.count, value: a }))
                 onPicked: (value) => { if (app.viewing) app.viewer.close(); win.openAlbum(value.kind, value.key, value.title) }
             }
             MenuSpec {

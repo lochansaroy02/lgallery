@@ -11,6 +11,10 @@ Item {
     signal finished()
 
     readonly property int count: photoModel.selectionCount
+    readonly property bool privateMode: photoModel === privatePhotos   // inside the private album
+    // shrink the buttons on narrow windows so the bar always fits
+    readonly property real actionWidth: Math.max(56, Math.min(76,
+        ((parent ? parent.width : 800) - 2 * Theme.s4 - 24) / (privateMode ? 2 : 7)))
     readonly property var win: ApplicationWindow.window
 
     implicitWidth: row.implicitWidth + Theme.s4 * 2
@@ -43,7 +47,7 @@ Item {
                 property bool danger: false
                 property bool filledIcon: false
                 signal triggered()
-                width: 76
+                width: bar.actionWidth
                 height: 60
                 enabled: bar.count > 0
                 opacity: enabled ? 1 : 0.35
@@ -78,14 +82,32 @@ Item {
                 }
             }
 
+            // ---- inside the private album ----
+            Action {
+                visible: bar.privateMode
+                icon: "unlock"
+                label: qsTr("Move out")
+                onTriggered: bar.win.moveOutOfPrivate(bar.photoModel.selectedIds(), function() { bar.finished() })
+            }
+            Action {
+                visible: bar.privateMode
+                icon: "trash"
+                label: qsTr("Delete")
+                danger: true
+                onTriggered: bar.win.deletePrivate(bar.photoModel.selectedIds(), function() { bar.finished() })
+            }
+
+            // ---- everywhere else ----
             Action {
                 id: shareAction
+                visible: !bar.privateMode
                 icon: "share"
                 label: qsTr("Share")
                 onTriggered: bar.win.share(bar.photoModel.selectedPaths(), shareAction, function() { bar.finished() })
             }
             Action {
                 id: favAction
+                visible: !bar.privateMode
                 readonly property bool allFav: bar.count > 0 && bar.photoModel.selectionAllFavorite()
                 icon: "heart"
                 filledIcon: allFav
@@ -96,21 +118,31 @@ Item {
                 }
             }
             Action {
+                visible: !bar.privateMode
+                icon: "lock"
+                label: qsTr("Private")
+                onTriggered: bar.win.moveToPrivate(bar.photoModel.selectedPaths(), function() { bar.finished() })
+            }
+            Action {
+                visible: !bar.privateMode
                 icon: "openWith"
                 label: qsTr("Open with")
                 onTriggered: bar.win.openWith(bar.photoModel.selectedPaths())
             }
             Action {
+                visible: !bar.privateMode
                 icon: "copy"
                 label: qsTr("Copy path")
                 onTriggered: gallery.copyPaths(bar.photoModel.selectedPaths())
             }
             Action {
+                visible: !bar.privateMode
                 icon: "showFolder"
                 label: qsTr("Show")
                 onTriggered: gallery.showInFolder(bar.photoModel.selectedPaths()[0])
             }
             Action {
+                visible: !bar.privateMode
                 icon: "trash"
                 label: qsTr("Delete")
                 danger: true

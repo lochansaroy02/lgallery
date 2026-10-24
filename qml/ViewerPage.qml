@@ -45,7 +45,7 @@ Item {
     function toggleMute() { videoMuted = !videoMuted }
     // save the frame on screen as a picture next to the video (full resolution, via ffmpeg)
     function captureFrame() {
-        if (!isVideo || !info.path || info.available !== true) return
+        if (!isVideo || !info.path || info.available !== true || info.private) return
         var ms = preview ? preview.position : resumeAt
         gallery.captureFrame(info.path, ms)
         resumeFrom(info.path, ms)    // the library reloads with the new picture: keep playing from here
@@ -65,8 +65,8 @@ Item {
     function refreshInfo() {
         info = photoModel && currentIndex >= 0 && currentIndex < photoModel.itemCount
                ? photoModel.itemAt(currentIndex) : ({})
-        canRevert = info.path ? editor.hasOriginal(info.path) : false
-        if (info.path) gallery.prepareShare([info.path])   // warm up the share menu
+        canRevert = info.path && !info.private ? editor.hasOriginal(info.path) : false
+        if (info.path && !info.private) gallery.prepareShare([info.path])   // warm up the share menu
     }
     function follow(path) { followPath = path }
     onCurrentIndexChanged: refreshInfo()
@@ -170,7 +170,14 @@ Item {
 
     function deleteCurrent() {
         if (!info.path) return
-        win.confirmDelete([info.path], null)
+        if (info.private) win.deletePrivate([info.id], null)
+        else win.confirmDelete([info.path], null)
+    }
+    function moveCurrentToPrivate() {
+        if (info.path && !info.private) win.moveToPrivate([info.path], null)
+    }
+    function moveCurrentOutOfPrivate() {
+        if (info.private) win.moveOutOfPrivate([info.id], null)
     }
 
     function toggleFavorite() {
@@ -178,6 +185,11 @@ Item {
         gallery.setFavorite([info.id], !info.favorite)
     }
 
+    // a private video was decrypted for playback: its URL is now known
+    Connections {
+        target: privateAlbum
+        function onVideoPrepared(id) { viewer.revision++; viewer.refreshInfo() }
+    }
     Connections {
         target: editor
         function onReverted(path) { viewer.refreshInfo() }
@@ -329,6 +341,7 @@ Item {
                     anchors.fill: parent
                     active: page.isVideo && page.item.available === true && page.isCurrent
                             && viewer.visible && !viewer.closing && !viewer.playerOpen
+                            && (page.item.url || "") !== ""
                     source: "components/VideoSurface.qml"
                     opacity: status === Loader.Ready && item && item.frameShown ? 1 : 0
                     Behavior on opacity { NumberAnimation { duration: Theme.durNormal } }
@@ -594,7 +607,16 @@ Item {
                 onClicked: viewer.toggleFavorite()
             }
             IconButton {
+                icon: "unlock"
+                visible: viewer.info.private === true
+                color: "white"
+                onDark: true
+                tip: qsTr("Move out of the private album")
+                onClicked: viewer.moveCurrentOutOfPrivate()
+            }
+            IconButton {
                 icon: "edit"
+                visible: viewer.info.private !== true
                 color: "white"
                 onDark: true
                 enabled: viewer.info.available === true && viewer.info.animated !== true && !viewer.isVideo
@@ -603,6 +625,7 @@ Item {
             }
             IconButton {
                 id: shareButton
+                visible: viewer.info.private !== true
                 icon: "share"
                 color: "white"
                 onDark: true
@@ -690,6 +713,7 @@ Item {
         }
         Rectangle {
             id: captureRound
+            visible: viewer.info.private !== true
             x: playPill.x + playPill.width + Theme.s3 + 44 + Theme.s2
             anchors.verticalCenter: parent.verticalCenter
             width: 44
@@ -704,7 +728,7 @@ Item {
                 color: "white"
                 onDark: true
                 iconSize: 20
-                enabled: viewer.info.available === true && gallery.videoThumbnailsSupported
+                enabled: viewer.info.available === true && gallery.videoThumbnailsSupported && !viewer.info.private
                 tip: gallery.videoThumbnailsSupported ? qsTr("Capture this frame (S)")
                                                       : qsTr("Capturing frames needs ffmpeg")
                 onClicked: viewer.captureFrame()
@@ -776,7 +800,7 @@ Item {
         case Qt.Key_End: if (photoModel) pager.currentIndex = photoModel.itemCount - 1; break
         case Qt.Key_I: viewer.detailsOpen = !viewer.detailsOpen; break
         case Qt.Key_F: viewer.toggleFavorite(); break
-        case Qt.Key_E: if (viewer.info.available && !viewer.info.animated && !viewer.isVideo) viewer.win.openEditor(viewer.info); break
+        case Qt.Key_E: if (viewer.info.available && !viewer.info.animated && !viewer.isVideo && !viewer.info.private) viewer.win.openEditor(viewer.info); break
         case Qt.Key_Return: case Qt.Key_Enter: case Qt.Key_P: viewer.playCurrent(); break
         case Qt.Key_M: if (viewer.isVideo) viewer.toggleMute(); break
         case Qt.Key_S: if (viewer.isVideo) viewer.captureFrame(); break

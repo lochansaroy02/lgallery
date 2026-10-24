@@ -11,6 +11,7 @@ StyledMenu {
     readonly property var info: viewer ? viewer.info : ({})
     readonly property bool isPicture: info.video !== true
     readonly property bool usable: info.available === true
+    readonly property bool isPrivate: info.private === true
     readonly property int setAsIndex: 5   // after Open Gallery, Play video, Capture frame, Details, divider
 
     // "Set as" only exists for pictures: added / removed each time the menu opens
@@ -38,8 +39,9 @@ StyledMenu {
     }
     property bool setAsShown: false
     onAboutToShow: {
-        if (isPicture && !setAsShown) { insertMenu(setAsIndex, setAsMenu); setAsShown = true }
-        else if (!isPicture && setAsShown) { removeMenu(setAsMenu); setAsShown = false }
+        const want = isPicture && !isPrivate
+        if (want && !setAsShown) { insertMenu(setAsIndex, setAsMenu); setAsShown = true }
+        else if (!want && setAsShown) { removeMenu(setAsMenu); setAsShown = false }
     }
 
     AppMenuItem {
@@ -59,7 +61,7 @@ StyledMenu {
         text: qsTr("Capture frame")
         iconName: "camera"
         shortcutText: "S"
-        visible: !menu.isPicture
+        visible: !menu.isPicture && !menu.isPrivate
         enabled: menu.usable && gallery.videoThumbnailsSupported
         onTriggered: menu.viewer.captureFrame()
     }
@@ -74,29 +76,55 @@ StyledMenu {
         text: qsTr("Print…")
         iconName: "print"
         shortcutText: "Ctrl+P"
-        visible: menu.isPicture
+        visible: menu.isPicture && !menu.isPrivate
         enabled: menu.usable && gallery.printingSupported
         onTriggered: menu.win.printPicture(menu.info)
     }
-    MenuDivider { visible: menu.isPicture }
+    MenuDivider { visible: menu.isPicture && !menu.isPrivate }
+    // private album: the only ways out
+    AppMenuItem {
+        text: qsTr("Move out of private album")
+        iconName: "unlock"
+        visible: menu.isPrivate
+        onTriggered: menu.viewer.moveCurrentOutOfPrivate()
+    }
+    AppMenuItem {
+        text: qsTr("Delete permanently")
+        iconName: "trash"
+        danger: true
+        visible: menu.isPrivate
+        onTriggered: menu.viewer.deleteCurrent()
+    }
     AppMenuItem {
         text: qsTr("Open with…")
+        visible: !menu.isPrivate
         iconName: "openWith"
         onTriggered: menu.win.openWith([menu.info.path])
     }
     AppMenuItem {
         text: qsTr("Open in default app")
         iconName: "monitor"
+        visible: !menu.isPrivate
         onTriggered: gallery.openExternally(menu.info.path)
     }
     AppMenuItem {
         text: qsTr("Show in folder")
         iconName: "showFolder"
+        visible: !menu.isPrivate
         onTriggered: gallery.showInFolder(menu.info.path)
     }
-    MenuDivider { }
+    MenuDivider { visible: !menu.isPrivate }
+    AppMenuItem {
+        text: qsTr("Move to private album")
+        iconName: "lock"
+        shortcutText: "Ctrl+Shift+H"
+        visible: !menu.isPrivate
+        enabled: menu.usable && privateAlbum.supported
+        onTriggered: menu.viewer.moveCurrentToPrivate()
+    }
     AppMenuItem {
         text: menu.isPicture ? qsTr("Copy picture") : qsTr("Copy video")
+        visible: !menu.isPrivate
         iconName: "copy"
         shortcutText: "Ctrl+C"
         onTriggered: gallery.shareFiles([menu.info.path])
@@ -104,6 +132,7 @@ StyledMenu {
     AppMenuItem {
         text: qsTr("Copy path")
         iconName: "file"
+        visible: !menu.isPrivate
         shortcutText: "Ctrl+Shift+C"
         onTriggered: gallery.copyPaths([menu.info.path])
     }

@@ -6,6 +6,7 @@ delegates that scrolled away are cancelled before any decoding happens.
 """
 
 import hashlib
+import io
 import itertools
 import logging
 import os
@@ -65,10 +66,9 @@ def _open_upright(path: str, width: int, height: int):
         raise
 
 
-def make_thumbnail(path: str, out) -> Image.Image:
-    """Decode path into a thumbnail (short side THUMB_SHORT_SIDE) and cache it at out.
-
-    Videos use a poster frame; their placeholder (no ffmpeg) is never cached."""
+def thumbnail_image(path: str) -> tuple[Image.Image, bool]:
+    """(thumbnail with short side THUMB_SHORT_SIDE, cacheable). Videos use a poster frame;
+    their placeholder (no ffmpeg) is not cacheable."""
     edge = THUMB_SHORT_SIDE * 2 if is_video(path) else THUMB_SHORT_SIDE
     im, cacheable = _open_upright(path, edge, edge)
     with im:
@@ -86,6 +86,31 @@ def make_thumbnail(path: str, out) -> Image.Image:
             im = im.resize((max(1, round(w * scale)), max(1, round(h * scale))),
                            Image.BICUBIC, reducing_gap=2.0)
         im = _flatten(im)
+    return im, cacheable
+
+
+def thumbnail_jpeg(path: str, quality: int = 85) -> bytes:
+    """The thumbnail as JPEG bytes, without touching the disk cache (private album)."""
+    im, _cacheable = thumbnail_image(path)
+    buf = io.BytesIO()
+    im.save(buf, "JPEG", quality=quality)
+    return buf.getvalue()
+
+
+def forget_cached(path: str) -> None:
+    """Delete every cached thumbnail of path (all versions)."""
+    folder = cache_path(path, "x").parent
+    digest = cache_path(path, "x").name.split("_", 1)[0]
+    for f in folder.glob(f"{digest}_*") if folder.exists() else ():
+        try:
+            f.unlink()
+        except OSError:
+            pass
+
+
+def make_thumbnail(path: str, out) -> Image.Image:
+    """Decode path into a thumbnail and cache it at out (placeholders are not cached)."""
+    im, cacheable = thumbnail_image(path)
     if not cacheable:
         return im
     try:

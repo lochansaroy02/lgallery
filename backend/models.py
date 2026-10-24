@@ -160,6 +160,9 @@ class PhotoModel(QAbstractListModel):
         self._external_files: list[str] = []
         self._external_quick = False
         self._ascending = False
+        # private album (backend/private.py): where items and decrypted video URLs come from
+        self.items_source = None
+        self.url_source = None
         if auto_load:
             self.reload()
 
@@ -173,6 +176,9 @@ class PhotoModel(QAbstractListModel):
             return
         if self._kind == "external":
             self._reload_external(gen)
+            return
+        if self._kind == "private":
+            self._apply(gen, self.items_source() if self.items_source else [])
             return
         where, params = build_filter(self._kind, self._value)
         self._set_loading(True)
@@ -300,7 +306,7 @@ class PhotoModel(QAbstractListModel):
             return [
                 {
                     "index": i,
-                    "src": thumb_url(it),
+                    "src": self._thumb_url(it),
                     "selected": it[F_ID] in sel,
                     "available": bool(it[F_AVAIL]),
                     "favorite": bool(it[F_FAV]),
@@ -487,28 +493,44 @@ class PhotoModel(QAbstractListModel):
         except (OverflowError, OSError, ValueError):
             dt = ""
         path = it[F_PATH]
+        private = self._kind == "private"
+        if private:  # F_PATH is "<item id>/<original name>"
+            uid, _, name = path.partition("/")
+            path = "private:" + uid
+            url = self.url_source(uid) if self.url_source and it[F_VIDEO] else ""
+            folder = self.tr("Private album")
+            full = f"image://private/full/{uid}/{int(it[F_MTIME])}"
+        else:
+            name, url, folder = os.path.basename(path), QUrl.fromLocalFile(path).toString(), os.path.dirname(path)
+            full = f"image://full/{it[F_ID]}/{version(it[F_MTIME], it[F_SIZE])}"
         return {
             "index": i,
             "id": it[F_ID],
             "path": path,
-            "url": QUrl.fromLocalFile(path).toString(),
-            "name": os.path.basename(path),
-            "folder": os.path.dirname(path),
+            "url": url,
+            "name": name,
+            "folder": folder,
             "date": dt,
             "width": it[F_W],
             "height": it[F_H],
             "size": format_size(it[F_SIZE]),
             "available": bool(it[F_AVAIL]),
             "favorite": bool(it[F_FAV]),
-            "thumb": thumb_url(it),
-            "full": f"image://full/{it[F_ID]}/{version(it[F_MTIME], it[F_SIZE])}",
-            "animated": path.lower().endswith(".gif"),
+            "thumb": self._thumb_url(it),
+            "full": full,
+            "animated": not private and path.lower().endswith(".gif"),
             "video": bool(it[F_VIDEO]),
             "duration": format_duration(it[F_DUR]) if it[F_VIDEO] else "",
             "seconds": float(it[F_DUR]),
             "selected": it[F_ID] in self._selected,
             "external": it[F_ID] < 0,
+            "private": private,
         }
+
+    def _thumb_url(self, item) -> str:
+        if self._kind == "private":
+            return f"image://private/thumb/{item[F_PATH].partition('/')[0]}/{int(item[F_MTIME])}"
+        return thumb_url(item)
 
     # ---- selection -------------------------------------------------------------
     @Slot(int)
@@ -619,6 +641,7 @@ class AlbumModel(QAbstractListModel):
         self._settings = settings
         self._albums: list[dict] = []
         self._generation = 0
+        self.extra_albums = None   # callable -> built-in albums added on the GUI thread (private album)
         settings.albumsBySubfolderChanged.connect(self.reload)
         self.reload()
 
@@ -672,6 +695,9 @@ class AlbumModel(QAbstractListModel):
     def _apply(self, gen, albums):
         if gen != self._generation:
             return
+        if self.extra_albums:
+            builtin = [a for a in albums if a["kind"] in ("favorites", "videos")]
+            albums = builtin + self.extra_albums() + albums[len(builtin):]
         self.beginResetModel()
         self._albums = albums
         self.endResetModel()

@@ -63,6 +63,8 @@ Item {
                 cover: parent.cover
                 available: parent.available
                 favorites: parent.kind === "favorites"
+                locked: parent.kind === "private"
+                lockedNow: !privateAlbum.unlocked
                 onClicked: view.openAlbum(parent.kind, parent.key, parent.title)
             }
         }

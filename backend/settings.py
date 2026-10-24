@@ -228,6 +228,12 @@ class Settings(QObject):
         recent = [p for p in paths if p] + [p for p in self.recentFiles if p not in paths]
         self._set("recent_files", recent[:MAX_RECENT], self.recentFilesChanged)
 
+    def remove_recent(self, paths):
+        gone = set(paths)
+        recent = [p for p in self.recentFiles if p not in gone]
+        if len(recent) != len(self.recentFiles):
+            self._set("recent_files", recent, self.recentFilesChanged)
+
     @Slot()
     def clearRecent(self):
         self._set("recent_files", [], self.recentFilesChanged)

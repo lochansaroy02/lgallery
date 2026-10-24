@@ -40,7 +40,7 @@ ApplicationWindow {
     readonly property bool dialogOpen: confirmDialog.opened || openWithPopup.opened || shareMenu.opened
                                        || shortcutsDialog.opened || aboutDialog.opened || appPopup.opened
                                        || nameDialog.opened || mergeDialog.opened || excludeDialog.opened
-                                       || printDialog.opened
+                                       || printDialog.opened || passwordDialog.opened
     readonly property var videoPlayer: videoPlayerLoader.item
     readonly property bool playingVideo: videoPlayer !== null && videoPlayer.visible
     readonly property bool editing: editorPage.visible || storyPlayer.visible || playingVideo
@@ -122,7 +122,60 @@ ApplicationWindow {
             qsTr("Move to trash"),
             function() { gallery.trash(paths); if (done) done() }, true)
     }
+    // ---- private album -------------------------------------------------------------------------
+    readonly property bool privateOpen: stack.currentItem !== null && stack.currentItem.isPrivate === true
+    function withPrivateAlbum(action) {
+        if (!privateAlbum.supported) {
+            toast.show(qsTr("The private album needs python-cryptography (sudo pacman -S python-cryptography)"))
+            return
+        }
+        if (!privateAlbum.exists) passwordDialog.ask("create", action)
+        else if (!privateAlbum.unlocked) passwordDialog.ask("unlock", action)
+        else action()
+    }
+    function openPrivateAlbum() {
+        withPrivateAlbum(function() {
+            if (viewer.visible) viewer.close()
+            if (!root.privateOpen) stack.push(privatePage)
+        })
+    }
+    function moveToPrivate(paths, done) {
+        paths = paths.filter(p => p && p.indexOf("private:") !== 0)
+        if (!paths.length) return
+        const wasLocked = !privateAlbum.unlocked && !root.privateOpen
+        withPrivateAlbum(function() {
+            confirmDialog.ask(
+                paths.length === 1 ? qsTr("Move to the private album?")
+                                   : qsTr("Move %1 items to the private album?").arg(paths.length),
+                qsTr("They are encrypted and removed from their folder, so other apps and people using this computer can't see them. You can move them out again from the private album."),
+                qsTr("Move"),
+                function() { privateAlbum.moveIn(paths, wasLocked); if (done) done() }, false)
+        })
+    }
+    function changePrivatePassword() { passwordDialog.ask("change", null) }
+    function moveOutOfPrivate(ids, done) {
+        if (!ids.length) return
+        privateAlbum.moveOut(ids)
+        if (done) done()
+    }
+    function deletePrivate(ids, done) {
+        if (!ids.length) return
+        confirmDialog.ask(
+            ids.length === 1 ? qsTr("Delete permanently?") : qsTr("Delete %1 items permanently?").arg(ids.length),
+            qsTr("They are deleted from the private album right away. They don't go to the trash and can't be restored."),
+            qsTr("Delete"),
+            function() { privateAlbum.deleteItems(ids); if (done) done() }, true)
+    }
+    // leave and lock the private album (Lock button, minimising the window)
+    function closePrivateAlbum() {
+        if (playingVideo && videoPlayer.info.private) videoPlayer.close()
+        if (viewer.visible && viewer.info.private) viewer.close()
+        if (stack.find(function(item) { return item.isPrivate === true }) !== null) stack.pop(null)
+        privateAlbum.lock()
+    }
+
     function openAlbum(kind, key, title) {
+        if (kind === "private") { openPrivateAlbum(); return }
         albumPhotos.setFilter(kind, key)
         stack.push(albumPage, { title: title })
     }
@@ -311,6 +364,53 @@ ApplicationWindow {
     }
 
     Component {
+        id: privatePage
+        PhotoGrid {
+            id: privateGrid
+            readonly property var grid: privateGrid
+            readonly property bool isPrivate: true
+            photoModel: privatePhotos
+            title: qsTr("Private album")
+            showBack: true
+            busy: privateAlbum.busy
+            extraActions: [{ id: "lock", icon: "lock", tip: qsTr("Lock the private album") }]
+            onExtraAction: (id) => { if (id === "lock") root.closePrivateAlbum() }
+            onBackRequested: stack.pop()
+            onSearchRequested: root.openSearch()
+            StackView.onRemoved: privateAlbum.lock()
+            emptyState: Component {
+                Column {
+                    spacing: Theme.s3
+                    Rectangle {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        width: 96
+                        height: 96
+                        radius: 48
+                        color: Theme.accentSoft
+                        Icon { anchors.centerIn: parent; name: "lock"; color: Theme.accent; size: 42 }
+                    }
+                    Text {
+                        width: parent.width
+                        horizontalAlignment: Text.AlignHCenter
+                        text: qsTr("Nothing here yet")
+                        color: Theme.text
+                        font.pixelSize: Theme.fontTitle
+                        font.weight: Font.Bold
+                    }
+                    Text {
+                        width: parent.width
+                        horizontalAlignment: Text.AlignHCenter
+                        wrapMode: Text.Wrap
+                        text: qsTr("Select pictures or videos and choose Private (or press Ctrl+Shift+H). They are encrypted and only open with your password.")
+                        color: Theme.textSecondary
+                        font.pixelSize: Theme.fontBody
+                    }
+                }
+            }
+        }
+    }
+
+    Component {
         id: searchPage
         SearchPage {
             id: search
@@ -407,6 +507,7 @@ ApplicationWindow {
     ExcludeFoldersDialog { id: excludeDialog }
     MergeDialog { id: mergeDialog }
     AboutDialog { id: aboutDialog }
+    PasswordDialog { id: passwordDialog }
     PrintDialog { id: printDialog }
 
     ColorDialog {
@@ -486,6 +587,15 @@ ApplicationWindow {
             viewer.open(externalGrid, idx)
         }
     }
+    // lock the private album when the window is minimised
+    onVisibilityChanged: (v) => { if (v === Window.Minimized && privateAlbum.unlocked) closePrivateAlbum() }
+    Connections {
+        target: privateAlbum
+        function onStateChanged() {
+            if (!privateAlbum.unlocked && root.playingVideo && root.videoPlayer.info.private) root.videoPlayer.close()
+        }
+    }
+
     Connections {
         target: viewer
         function onVisibleChanged() {

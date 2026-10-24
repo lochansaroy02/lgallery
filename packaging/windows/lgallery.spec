@@ -29,7 +29,8 @@ if (FFMPEG_DIR / "LICENSE.txt").is_file():
 hiddenimports = [
     "PySide6.QtQuick", "PySide6.QtQuickControls2", "PySide6.QtMultimedia", "PySide6.QtPrintSupport",
     "PySide6.QtSvg", "PySide6.QtNetwork", "PySide6.QtQml",
-    "backend.faces", "backend.video", "backend.desktop", "backend.printing",
+    "backend.faces", "backend.video", "backend.desktop", "backend.printing", "backend.private",
+    "cryptography.hazmat.primitives.ciphers.aead",
     "send2trash", "watchdog.observers", "pillow_heif",
 ]
 # big Qt parts LGallery never uses

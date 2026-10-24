@@ -26,7 +26,10 @@ class _Task(QRunnable):
         try:
             result, error = self.fn(*self.args), None
         except Exception as exc:  # reported back, never raised in the pool
-            log.warning("background task failed: %s\n%s", exc, traceback.format_exc())
+            if getattr(exc, "expected", False):  # e.g. a wrong password: no traceback
+                log.info("background task: %s", exc)
+            else:
+                log.warning("background task failed: %s\n%s", exc, traceback.format_exc())
             result, error = None, exc
         self.signals.done.emit(result, error)
 

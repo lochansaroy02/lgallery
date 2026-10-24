@@ -32,7 +32,7 @@ Popup {
             ["Ctrl+A", qsTr("Select all")], ["Ctrl+Shift+A", qsTr("Deselect all")],
             ["Ctrl+C", qsTr("Copy pictures")], ["Ctrl+Shift+C", qsTr("Copy paths")],
             ["Ctrl+L / Ctrl+R", qsTr("Rotate left / right")], ["Del", qsTr("Move to trash")],
-            ["Esc", qsTr("Stop selecting")] ] },
+            ["Ctrl+Shift+H", qsTr("Move to the private album")], ["Esc", qsTr("Stop selecting")] ] },
         { title: qsTr("Viewer"), keys: [
             ["← / → / Space", qsTr("Previous / next")], ["Home / End", qsTr("First / last")],
             ["+ / − / 0, wheel, double-click", qsTr("Zoom")], ["E", qsTr("Edit")], ["F", qsTr("Favorite")],

@@ -9,6 +9,8 @@ Item {
     property string cover
     property bool available: true
     property bool favorites: false
+    property bool locked: false        // the private album: lock instead of a cover
+    property bool lockedNow: true      // ...and no count while it is locked
     signal clicked()
 
     implicitHeight: width + 56
@@ -22,8 +24,22 @@ Item {
         scale: mouse.pressed ? 0.97 : 1
         Behavior on scale { NumberAnimation { duration: Theme.durFast } }
 
+        Rectangle {
+            anchors.fill: parent
+            visible: card.locked
+            radius: Theme.radiusL
+            color: Theme.accentSoft
+            Icon {
+                anchors.centerIn: parent
+                name: "lock"
+                color: Theme.accent
+                size: Math.max(28, parent.width * 0.26)
+                strokeWidth: 1.6
+            }
+        }
         RoundedImage {
             anchors.fill: parent
+            visible: !card.locked
             source: card.cover
             radius: Theme.radiusL
             opacity: card.available ? 1 : 0.5
@@ -69,7 +85,8 @@ Item {
             font.weight: Font.DemiBold
         }
         Text {
-            text: card.available ? card.count.toLocaleString(Qt.locale(), "f", 0)
+            text: card.locked ? (card.lockedNow ? qsTr("Locked") : card.count.toLocaleString(Qt.locale(), "f", 0))
+                : card.available ? card.count.toLocaleString(Qt.locale(), "f", 0)
                                  : card.count.toLocaleString(Qt.locale(), "f", 0) + " · " + qsTr("unavailable")
             color: Theme.textSecondary
             font.pixelSize: Theme.fontSmall

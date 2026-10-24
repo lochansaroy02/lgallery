@@ -182,6 +182,52 @@ Item {
             }
 
             Group {
+                title: qsTr("Private album")
+                SettingRow {
+                    title: qsTr("Private album")
+                    subtitle: !privateAlbum.supported
+                              ? qsTr("Needs python-cryptography (sudo pacman -S python-cryptography)")
+                              : !privateAlbum.exists
+                              ? qsTr("Keep pictures and videos encrypted behind a password")
+                              : privateAlbum.unlocked ? qsTr("Unlocked") : qsTr("Locked")
+                    PillButton {
+                        compact: true
+                        kind: "tonal"
+                        icon: "lock"
+                        enabled: privateAlbum.supported
+                        text: privateAlbum.exists ? qsTr("Open") : qsTr("Set up")
+                        onClicked: ApplicationWindow.window.openPrivateAlbum()
+                    }
+                }
+                SettingRow {
+                    visible: privateAlbum.exists
+                    title: qsTr("Change password")
+                    subtitle: qsTr("Your files stay as they are")
+                    PillButton {
+                        compact: true
+                        kind: "tonal"
+                        text: qsTr("Change")
+                        onClicked: ApplicationWindow.window.changePrivatePassword()
+                    }
+                }
+                SettingRow {
+                    visible: privateAlbum.exists
+                    title: qsTr("Delete private album")
+                    subtitle: qsTr("Deletes everything in it, for good. Use this if you forgot the password.")
+                    PillButton {
+                        compact: true
+                        kind: "danger"
+                        text: qsTr("Delete")
+                        onClicked: ApplicationWindow.window.confirm(
+                            qsTr("Delete the private album?"),
+                            qsTr("Every picture and video in it is deleted permanently. This can't be undone."),
+                            qsTr("Delete everything"),
+                            function() { ApplicationWindow.window.closePrivateAlbum(); privateAlbum.destroy() })
+                    }
+                }
+            }
+
+            Group {
                 title: qsTr("Default app")
                 SettingRow {
                     title: qsTr("Default image viewer")

@@ -5,6 +5,7 @@ LGallery is a desktop photo and video gallery for Arch-based Linux (Manjaro) on 
 - **Pictures tab:** day headers that stay visible while you scroll ("Today", "Yesterday", "Fri, Oct 23"), a title that shrinks as you scroll, a fast-scroll handle with a month bubble, and **Ctrl + mouse wheel** or **Ctrl +/-** to change the number of columns.
 - **Videos:** videos sit among your pictures in date order, with a ▶ length badge. The **Videos tab** lists only videos. Opening a video plays it straight away, **muted**, with a mute button. **Play video** opens the built-in player with sound (see [Videos](#videos)).
 - **Albums tab:** one album per watched folder, or one per sub-folder (a setting), plus **Favorites** and **Videos**.
+- **Private album:** password-protected and encrypted. Pictures and videos moved in disappear from their folders and from the rest of Gallery. See [Private album](#private-album).
 - **Collections tab:**
   - **Stories:** slideshows of pictures taken around today's date in earlier years.
   - **Places:** pictures grouped by town and country, from GPS.
@@ -120,7 +121,7 @@ From the project folder, one command does everything:
 ```
 
 It:
-1. installs the system packages with pacman: `pyside6` (the system Qt bindings), `python-pillow`, `qt6-declarative`, `qt6-svg`, `qt6-imageformats`, `qt6-multimedia`, `qt6-multimedia-ffmpeg` and `ffmpeg` (video playback and video thumbnails) and, when available, `python-watchdog`, `python-send2trash`, `purpose`, `plasma-integration` and `xdg-utils`;
+1. installs the system packages with pacman: `pyside6` (the system Qt bindings), `python-pillow`, `python-cryptography` (private album), `qt6-declarative`, `qt6-svg`, `qt6-imageformats`, `qt6-multimedia`, `qt6-multimedia-ffmpeg` and `ffmpeg` (video playback and video thumbnails) and, when available, `python-watchdog`, `python-send2trash`, `purpose`, `plasma-integration` and `xdg-utils`;
 2. creates `.venv` on top of them (`--system-site-packages`) and adds `pillow-heif` from PyPI for HEIC photos;
 3. installs the launcher, menu entry and icon (`~/.local/bin/lgallery`, `~/.local/share/applications/lgallery.desktop`).
 
@@ -150,7 +151,7 @@ python3 -m venv .venv
 This builds a real pacman package from your checkout, using the distro's Python packages (no venv):
 
 ```bash
-sudo pacman -S --needed base-devel pyside6 python-pillow qt6-declarative qt6-svg qt6-imageformats \
+sudo pacman -S --needed base-devel pyside6 python-pillow python-cryptography qt6-declarative qt6-svg qt6-imageformats \
     qt6-multimedia qt6-multimedia-ffmpeg ffmpeg
 sudo pacman -S --needed python-watchdog python-send2trash   # optional: live updates, trash
 cd packaging
@@ -238,6 +239,35 @@ To stop using Gallery as the default, pick another app in Dolphin's **File Type 
 - **Capture frame** (📷, **S**, in the viewer and the player) saves the exact frame at the video's full resolution as a JPEG next to the video (`clip_frame_01-23-456.jpg`), or in `~/Pictures/Screenshots` when the video's folder is read-only. The picture is dated at that moment of the recording, so it sits right beside the video in your gallery. Needs ffmpeg.
 - **Playback** uses Qt Multimedia with its FFmpeg backend (`qt6-multimedia`, `qt6-multimedia-ffmpeg`). The file is played from disk as it is read, never loaded into memory. If Qt Multimedia is missing, the rest of Gallery still works, and videos open in your default player.
 - Videos are skipped by People (faces), Stories and the photo editor. They do count for Places when they carry GPS.
+
+### Private album
+
+Keep pictures and videos behind a password, like Samsung's Secure Folder or Google Photos' Locked Folder.
+
+- **Moving items in:**
+  - Select items and tap **Private** in the selection bar.
+  - Or use **⋮ / right-click → Move to private album**, or press **Ctrl+Shift+H**.
+  - The first time, you set a password (at least 6 characters, typed twice).
+- **Opening it:**
+  - From **Albums → Private album**, **View ▸ Private Album**, or **Settings → Private album**.
+  - Inside, it's the usual date grid and viewer.
+  - To get a file back, use **Move out**. It returns to its original folder, or to `~/Pictures/Restored from private album` if that folder is gone.
+  - **Delete** removes a file for good; it doesn't go to the trash.
+- **Locking:**
+  - Tap the 🔒 button, leave the album, or minimise the window, and it locks.
+  - If you only unlocked it to move something in, it locks again straight away.
+  - After 5 wrong passwords in a row, unlocking pauses for 30 seconds.
+- **What "protected" means:**
+  - Files are encrypted with AES-256-GCM, and their names and dates are encrypted too.
+  - The key is unlocked by your password through scrypt.
+  - The originals are deleted, and so is everything Gallery kept about them: index entries, cached thumbnails, face crops, the editor's backup and the *Open Recent* entry.
+  - The encrypted files live in `~/.local/share/lgallery/private/` (on Windows, `%LOCALAPPDATA%\LGallery\private`).
+  - Videos are decrypted to a private temporary folder while they play: `$XDG_RUNTIME_DIR`, which is in RAM on most Linux systems. They're deleted on lock and on quit.
+- **Forgotten password:** there is no recovery. **Settings → Private album → Delete private album** removes it and everything in it, so you can start again.
+- **Limits:**
+  - Deleting the original doesn't wipe the disk blocks it used, so tools that recover deleted files may still find older copies.
+  - Backups or cloud sync that already copied the originals keep their copies.
+  - It needs `python-cryptography`, which `update.sh` and the AUR package install.
 
 ### Collections: Stories, Places and People
 
@@ -332,6 +362,7 @@ Items enable themselves from context: a picture open in the viewer, a selection,
 | Ctrl+C / Ctrl+Shift+C | Copy picture / copy path |
 | Ctrl+P | Print the picture in the viewer |
 | Ctrl+Shift+B / Ctrl+Shift+L | Set the picture in the viewer as wallpaper / lock screen |
+| Ctrl+Shift+H | Move the selection (or the picture in the viewer) to the private album |
 | Ctrl+L / Ctrl+R | Rotate left / right (saved; revert from ⋮) |
 | Ctrl+Shift+A | Deselect all |
 | Ctrl+Home | Today |
@@ -387,6 +418,7 @@ To fix only the packaging of the same version (a dependency, say), raise `pkgrel
 | Originals of edited photos | `~/.local/share/lgallery/originals/` (needed for **Revert to original**) |
 | Face models (People) | `~/.local/share/lgallery/models/` |
 | Town list (Places) | `~/.local/share/lgallery/geo/` |
+| Private album (encrypted) | `~/.local/share/lgallery/private/` |
 | Face thumbnails | `~/.cache/lgallery/faces/` |
 | Wallpaper / lock screen copies | `~/.local/share/lgallery/wallpapers/` (the 8 most recent; the wallpaper keeps working if the original moves) |
 
@@ -410,6 +442,7 @@ The paths follow `XDG_CONFIG_HOME`, `XDG_DATA_HOME` and `XDG_CACHE_HOME`. Settin
 .venv/bin/python tools/collections_smoke.py --faces DIR --out ui-shots  # stories, places, people
 .venv/bin/python tools/video_smoke.py --out ui-shots      # videos: mixed timeline, Videos tab, preview, player (needs ffmpeg)
 .venv/bin/python tools/viewer_menu_smoke.py --out ui-shots # viewer ⋮ menu, Set as, print sheet (prints to PDF)
+.venv/bin/python tools/private_smoke.py --out ui-shots     # private album: password, move in / out, lock
 .venv/bin/python tools/make_samples.py samples --count 5000 --videos 40   # also add sample videos (needs ffmpeg)
 ```
 
@@ -426,6 +459,8 @@ backend/scanner.py    ScanThread: incremental, mount-aware folder walk + EXIF
 backend/video.py      video metadata (ffprobe or the MP4 header) and poster frames (ffmpeg)
 backend/desktop.py    set as wallpaper / lock screen (Plasma, with GNOME and macOS fallbacks)
 backend/printing.py   printing through CUPS (Qt Print Support) and Save as PDF
+backend/vault.py      private album storage: scrypt + AES-256-GCM, chunked file encryption
+backend/private.py    private album: move in / out, decrypting image provider, videos
 backend/watcher.py    watchdog (inotify) live updates
 backend/models.py     PhotoModel (rows of thumbnails + day sections), AlbumModel
 backend/thumbs.py     async image providers: image://thumbs (disk-cached), image://full

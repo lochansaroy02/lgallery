@@ -8,7 +8,7 @@ pkgdesc="One UI style photo and video gallery for KDE Plasma"
 arch=('any')
 url="https://github.com/lochansaroy02/lgallery"
 license=('MIT')
-depends=('python' 'pyside6' 'python-pillow' 'qt6-declarative' 'qt6-svg' 'qt6-imageformats'
+depends=('python' 'pyside6' 'python-pillow' 'python-cryptography' 'qt6-declarative' 'qt6-svg' 'qt6-imageformats'
          'qt6-multimedia' 'qt6-multimedia-ffmpeg' 'ffmpeg')
 optdepends=('python-watchdog: live updates when files change'
             'python-send2trash: move to trash (a built-in freedesktop trash is used otherwise)'
