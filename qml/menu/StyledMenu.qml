@@ -5,6 +5,7 @@ import ".."
 // Rounded, theme-coloured Qt Quick menu used for the in-app ⋮ menu and its submenus.
 Menu {
     id: menu
+    property string iconName: ""   // shown on this submenu's row in the parent menu
     padding: 6
     overlap: 6
     cascade: true

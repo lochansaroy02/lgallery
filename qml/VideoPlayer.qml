@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Window
 import "."
 import "components"
+import "menu"
 
 // Built-in video player: seek bar with time preview, ±10 s skips, volume, playback speed,
 // loop, full screen, auto-hiding controls. Keyboard: Space/K play-pause, ←/→ 5 s,
@@ -87,6 +88,12 @@ Item {
         flash.show(muted ? "volumeOff" : "volume")
         poke()
     }
+    // ⋮ menu at the pointer (right-click), kept inside the window
+    function openMenuAt(x, y) {
+        poke()
+        moreMenu.popup(player, Math.max(8, Math.min(x, width - moreMenu.width - 8)),
+                               Math.max(8, Math.min(y, height - moreMenu.height - 8)))
+    }
     function toggleFullScreen() {
         if (fullScreen) win.showNormal()
         else win.showFullScreen()
@@ -147,11 +154,14 @@ Item {
     MouseArea {
         anchors.fill: parent
         hoverEnabled: true
-        acceptedButtons: Qt.LeftButton
+        acceptedButtons: Qt.LeftButton | Qt.RightButton
         cursorShape: player.controlsShown ? Qt.ArrowCursor : Qt.BlankCursor
         onPositionChanged: player.poke()
-        onClicked: clickTimer.restart()
-        onDoubleClicked: { clickTimer.stop(); player.toggleFullScreen() }
+        onClicked: (m) => {
+            if (m.button === Qt.RightButton) player.openMenuAt(m.x, m.y)
+            else clickTimer.restart()
+        }
+        onDoubleClicked: (m) => { if (m.button === Qt.LeftButton) { clickTimer.stop(); player.toggleFullScreen() } }
         onWheel: (ev) => player.changeVolume(ev.angleDelta.y > 0 ? 0.05 : -0.05)
         Timer { id: clickTimer; interval: 220; onTriggered: player.togglePlay() }
     }
@@ -302,16 +312,20 @@ Item {
                     onClicked: { player.loop = !player.loop; player.poke() }
                 }
                 IconButton {
+                    id: moreButton
                     icon: "more"
                     color: "white"
                     onDark: true
-                    onClicked: moreMenu.popup()
-                    Menu {
+                    tip: qsTr("More options")
+                    onClicked: moreMenu.popup(moreButton, moreButton.width - moreMenu.width, moreButton.height + 4)
+                    StyledMenu {
                         id: moreMenu
-                        MenuItem { text: qsTr("Open with…"); onTriggered: player.win.openWith([player.info.path]) }
-                        MenuItem { text: qsTr("Open in default app"); onTriggered: gallery.openExternally(player.info.path) }
-                        MenuItem { text: qsTr("Show in folder"); onTriggered: gallery.showInFolder(player.info.path) }
-                        MenuItem { text: qsTr("Copy path"); onTriggered: gallery.copyPaths([player.info.path]) }
+                        AppMenuItem { text: qsTr("Open with…"); iconName: "openWith"; onTriggered: player.win.openWith([player.info.path]) }
+                        AppMenuItem { text: qsTr("Open in default app"); iconName: "monitor"; onTriggered: gallery.openExternally(player.info.path) }
+                        AppMenuItem { text: qsTr("Show in folder"); iconName: "showFolder"; onTriggered: gallery.showInFolder(player.info.path) }
+                        MenuDivider { }
+                        AppMenuItem { text: qsTr("Copy video"); iconName: "copy"; onTriggered: gallery.shareFiles([player.info.path]) }
+                        AppMenuItem { text: qsTr("Copy path"); iconName: "file"; onTriggered: gallery.copyPaths([player.info.path]) }
                     }
                 }
             }
@@ -568,11 +582,13 @@ Item {
                         ToolTip.visible: speedMouse.containsMouse && !speedMenu.visible
                         ToolTip.delay: 600
                         ToolTip.text: qsTr("Playback speed ([ and ])")
-                        Menu {
+                        StyledMenu {
                             id: speedMenu
-                            Repeater {
+                            Instantiator {
                                 model: player.rates
-                                delegate: MenuItem {
+                                onObjectAdded: (i, obj) => speedMenu.insertItem(i, obj)
+                                onObjectRemoved: (i, obj) => speedMenu.removeItem(obj)
+                                delegate: AppMenuItem {
                                     required property real modelData
                                     text: modelData === 1 ? qsTr("Normal") : modelData + "×"
                                     checkable: true

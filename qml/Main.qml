@@ -40,6 +40,7 @@ ApplicationWindow {
     readonly property bool dialogOpen: confirmDialog.opened || openWithPopup.opened || shareMenu.opened
                                        || shortcutsDialog.opened || aboutDialog.opened || appPopup.opened
                                        || nameDialog.opened || mergeDialog.opened || excludeDialog.opened
+                                       || printDialog.opened
     readonly property var videoPlayer: videoPlayerLoader.item
     readonly property bool playingVideo: videoPlayer !== null && videoPlayer.visible
     readonly property bool editing: editorPage.visible || storyPlayer.visible || playingVideo
@@ -54,6 +55,9 @@ ApplicationWindow {
     // ---- API used by the views (via ApplicationWindow.window) -----------------------
     function openViewer(grid, index) { viewer.open(grid, index) }
     function openEditor(info) { editorPage.open(info) }
+    function printPicture(info) {
+        if (info && info.path && info.video !== true) printDialog.openFor(info)
+    }
     // the built-in video player, continuing from the inline preview's position
     function playVideo(info, startMs) {
         if (!info || !info.path) return
@@ -399,6 +403,7 @@ ApplicationWindow {
     ExcludeFoldersDialog { id: excludeDialog }
     MergeDialog { id: mergeDialog }
     AboutDialog { id: aboutDialog }
+    PrintDialog { id: printDialog }
 
     ColorDialog {
         id: accentDialog

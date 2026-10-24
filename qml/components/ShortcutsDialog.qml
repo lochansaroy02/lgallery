@@ -38,6 +38,7 @@ Popup {
             ["+ / − / 0, wheel, double-click", qsTr("Zoom")], ["E", qsTr("Edit")], ["F", qsTr("Favorite")],
             ["I", qsTr("Details")], ["Ctrl+L / Ctrl+R", qsTr("Rotate left / right")],
             ["Del", qsTr("Move to trash")], ["Esc", qsTr("Close")],
+            ["Ctrl+P", qsTr("Print")],
             [qsTr("Enter / double-click"), qsTr("Play a video with sound")], ["M", qsTr("Mute / unmute the preview")] ] },
         { title: qsTr("Video player"), keys: [
             ["Space / K", qsTr("Play / pause")], ["← / →", qsTr("Back / forward 5 seconds")],

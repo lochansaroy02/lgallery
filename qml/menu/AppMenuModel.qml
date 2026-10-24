@@ -19,6 +19,7 @@ QtObject {
                                       && grid.photoModel.selectionCount > 0
     readonly property bool hasContext: editing || (viewing && !!viewer.info.path) || selecting
     readonly property bool viewingLibraryPicture: viewing && viewer.info.external !== true
+    readonly property bool viewingPicture: viewing && viewer.info.video !== true && viewer.info.available === true
     readonly property bool canRotate: hasContext && !editing && !(viewing && viewer.info.available === false)
                                       && !(viewing && viewer.info.video === true)
 
@@ -140,6 +141,18 @@ QtObject {
             MenuSpec {
                 text: qsTr("Show in Folder"); enabled: app.hasContext
                 onTriggered: gallery.showInFolder(app.paths()[0])
+            }
+            MenuSpec {
+                text: qsTr("Set As")
+                enabled: app.viewingPicture && gallery.wallpaperSupported
+                MenuSpec { text: qsTr("Wallpaper"); enabled: app.viewingPicture; onTriggered: gallery.setAsWallpaper(app.viewer.info.path, "wallpaper") }
+                MenuSpec { text: qsTr("Lock Screen"); enabled: app.viewingPicture; onTriggered: gallery.setAsWallpaper(app.viewer.info.path, "lockscreen") }
+                MenuSpec { text: qsTr("Wallpaper and Lock Screen"); enabled: app.viewingPicture; onTriggered: gallery.setAsWallpaper(app.viewer.info.path, "both") }
+            }
+            MenuSpec {
+                text: qsTr("Print…"); shortcut: "Ctrl+P"; bindKey: true
+                enabled: app.viewingPicture && gallery.printingSupported
+                onTriggered: win.printPicture(app.viewer.info)
             }
             MenuSpec { separator: true }
             MenuSpec {

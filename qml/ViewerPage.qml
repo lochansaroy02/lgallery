@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Window
 import "."
 import "components"
+import "menu"
 
 // Full-screen viewer: swipe / arrow keys to navigate, wheel / double-click / pinch
 // to zoom, drag to pan, Esc to close. Opens and closes with a shared-element
@@ -29,6 +30,7 @@ Item {
     property bool canRevert: false
     property bool videoMuted: true    // inline video previews start muted
     property bool playerOpen: false   // the video player is showing the current video
+    readonly property alias moreMenu: moreMenu
     property int resumeAt: 0          // continue the preview where the player stopped
     readonly property bool isVideo: info.video === true
     readonly property var preview: pager.currentItem ? pager.currentItem.preview : null
@@ -38,6 +40,16 @@ Item {
         win.playVideo(info, preview ? preview.position : 0)
     }
     function toggleMute() { videoMuted = !videoMuted }
+    // ⋮ menu at a point (right-click), kept inside the window
+    function openMenuAt(x, y) {
+        if (closing || !info.path) return
+        chrome = true
+        moreMenu.popup(viewer, Math.max(8, Math.min(x, width - moreMenu.width - 8)),
+                               Math.max(8, Math.min(y, height - moreMenu.height - 8)))
+    }
+    function openMenuFromButton() {
+        moreMenu.popup(moreButton, moreButton.width - moreMenu.width, moreButton.height + 4)
+    }
 
     function refreshInfo() {
         info = photoModel && currentIndex >= 0 && currentIndex < photoModel.itemCount
@@ -367,6 +379,21 @@ Item {
                 enabled: !page.isVideo
                 onWheel: (ev) => page.zoomAt(page.zoom * Math.pow(1.0018, ev.angleDelta.y), point.position.x, point.position.y)
             }
+            // right-click (or long-press on a touch screen): the ⋮ menu at the pointer
+            TapHandler {
+                acceptedButtons: Qt.RightButton
+                onTapped: (ev) => {
+                    var p = page.mapToItem(viewer, ev.position.x, ev.position.y)
+                    viewer.openMenuAt(p.x, p.y)
+                }
+            }
+            TapHandler {
+                acceptedDevices: PointerDevice.TouchScreen
+                onLongPressed: {
+                    var p = page.mapToItem(viewer, point.position.x, point.position.y)
+                    viewer.openMenuAt(p.x, p.y)
+                }
+            }
             TapHandler {
                 onSingleTapped: viewer.chrome = !viewer.chrome
                 onDoubleTapped: (ev) => {
@@ -488,32 +515,15 @@ Item {
                 font.pixelSize: Theme.fontSmall
             }
             IconButton {
+                id: moreButton
                 icon: "more"
                 color: "white"
                 onDark: true
-                onClicked: moreMenu.popup()
-                Menu {
+                tip: qsTr("More options")
+                onClicked: viewer.openMenuFromButton()
+                ViewerMenu {
                     id: moreMenu
-                    MenuItem {
-                        text: qsTr("Open Gallery")
-                        visible: viewer.win.standalone
-                        height: visible ? implicitHeight : 0
-                        onTriggered: viewer.win.showLibrary()
-                    }
-                    MenuItem { text: qsTr("Open with…"); onTriggered: viewer.win.openWith([viewer.info.path]) }
-                    MenuItem { text: qsTr("Open in default app"); onTriggered: gallery.openExternally(viewer.info.path) }
-                    MenuItem { text: qsTr("Show in folder"); onTriggered: gallery.showInFolder(viewer.info.path) }
-                    MenuItem { text: qsTr("Copy path"); onTriggered: gallery.copyPaths([viewer.info.path]) }
-                    MenuItem { text: qsTr("Copy to clipboard"); onTriggered: gallery.shareFiles([viewer.info.path]) }
-                    MenuItem {
-                        text: qsTr("Revert to original")
-                        visible: viewer.canRevert
-                        height: visible ? implicitHeight : 0
-                        onTriggered: viewer.win.confirm(
-                            qsTr("Revert to original?"),
-                            qsTr("All edits you saved to this picture are removed and the original file is restored."),
-                            qsTr("Revert"), function() { editor.revertOriginal(viewer.info.path) })
-                    }
+                    viewer: viewer
                 }
             }
         }
@@ -721,6 +731,7 @@ Item {
         case Qt.Key_E: if (viewer.info.available && !viewer.info.animated && !viewer.isVideo) viewer.win.openEditor(viewer.info); break
         case Qt.Key_Return: case Qt.Key_Enter: case Qt.Key_P: viewer.playCurrent(); break
         case Qt.Key_M: if (viewer.isVideo) viewer.toggleMute(); break
+        case Qt.Key_Menu: viewer.openMenuFromButton(); break
         case Qt.Key_Plus: case Qt.Key_Equal:
             if (page) page.animatedZoomAt(page.zoom * 1.5, width / 2, height / 2); break
         case Qt.Key_Minus:

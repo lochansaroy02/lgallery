@@ -12,7 +12,7 @@ from PySide6.QtCore import (
 from PySide6.QtGui import QGuiApplication, QPalette
 
 from . import (
-    PROJECT_URL, __version__, CACHE_DIR, CONFIG_PATH, DATA_DIR, DB_PATH, FFMPEG, HEIF_SUPPORTED, actions, db, external, share, thumbs,
+    PROJECT_URL, __version__, CACHE_DIR, CONFIG_PATH, DATA_DIR, DB_PATH, FFMPEG, HEIF_SUPPORTED, actions, desktop, printing, db, external, share, thumbs,
 )
 from .models import AlbumModel, PhotoModel, format_size
 from .scanner import ScanThread, root_available
@@ -90,6 +90,7 @@ class Gallery(QObject):
     defaultViewerChanged = Signal()
     shareTargetsChanged = Signal()
     libraryReloaded = Signal()
+    printersLoaded = Signal("QVariantMap")   # {printers: [...], paper: "a4"}
 
     def __init__(self, settings: Settings, parent=None):
         super().__init__(parent)
@@ -613,6 +614,69 @@ class Gallery(QObject):
     def openExternally(self, path):
         if not actions.open_default(path):
             self.toast.emit("No application is set up to open this file")
+
+    # ---- set as wallpaper / lock screen, print ----------------------------------------------
+    @Property(bool, constant=True)
+    def wallpaperSupported(self):
+        import shutil
+        return bool(shutil.which("plasma-apply-wallpaperimage") or shutil.which("kwriteconfig6")
+                    or shutil.which("kwriteconfig5") or shutil.which("gsettings")
+                    or sys.platform == "darwin")
+
+    @Slot(str, str)
+    def setAsWallpaper(self, path, target):
+        """target: "wallpaper", "lockscreen" or "both"."""
+        messages = {"wallpaper": "Wallpaper set", "lockscreen": "Lock screen set",
+                    "both": "Wallpaper and lock screen set"}
+
+        def failed(exc):
+            log.warning("set as %s failed: %s", target, exc)
+            self.toast.emit(str(exc) or "Couldn't set the wallpaper")
+
+        run_async(desktop.apply, path, target,
+                  on_done=lambda t: self.toast.emit(messages.get(t, "Done")), on_error=failed)
+
+    @Property(bool, constant=True)
+    def printingSupported(self):
+        return printing.AVAILABLE
+
+    @Property("QVariantList", constant=True)
+    def paperSizes(self):
+        return printing.papers()
+
+    @Slot()
+    def requestPrinters(self):
+        def work():
+            return {"printers": printing.printers(), "paper": printing.default_paper()}
+
+        run_async(work, on_done=self.printersLoaded.emit,
+                  on_error=lambda exc: self.printersLoaded.emit(
+                      {"printers": printing.printers(), "paper": "a4"}))
+
+    @Slot(str, "QVariantMap")
+    def printImage(self, path, options):
+        opts = dict(options)
+
+        def failed(exc):
+            log.warning("printing %s failed: %s", path, exc)
+            self.toast.emit(str(exc) or "Printing failed")
+
+        self.toast.emit("Saving PDF…" if opts.get("printer") == printing.PDF else "Printing…")
+        run_async(printing.print_image, path, opts, on_done=self.toast.emit, on_error=failed)
+
+    @Slot(str, result=str)
+    def defaultPdfPath(self, path):
+        """~/Documents/<name>.pdf (or next to the picture when there is no Documents folder)."""
+        from PySide6.QtCore import QStandardPaths
+        docs = QStandardPaths.writableLocation(QStandardPaths.DocumentsLocation)
+        folder = docs if docs and os.path.isdir(docs) else os.path.dirname(path)
+        base = os.path.splitext(os.path.basename(path))[0]
+        out = os.path.join(folder, base + ".pdf")
+        n = 2
+        while os.path.exists(out):
+            out = os.path.join(folder, f"{base} ({n}).pdf")
+            n += 1
+        return out
 
     @Slot(str)
     def showInFolder(self, path):

@@ -3,14 +3,17 @@ import QtQuick.Controls
 import ".."
 import "../components"
 
-// Menu row for the in-app menu: label, shortcut on the right, check mark, submenu arrow.
+// Menu row for the in-app menus: optional icon, label, shortcut on the right, check mark,
+// submenu arrow. A submenu row takes its icon from the submenu's `iconName`.
 MenuItem {
     id: item
     property string shortcutText: ""
+    property string iconName: subMenu && subMenu.iconName !== undefined ? subMenu.iconName : ""
+    property bool danger: false
     implicitWidth: 280
-    implicitHeight: visible ? 38 : 0
+    implicitHeight: visible ? 40 : 0
     height: visible ? implicitHeight : 0
-    leftPadding: 34
+    leftPadding: iconName !== "" ? 44 : 34
     rightPadding: 14
 
     contentItem: Item {
@@ -22,7 +25,7 @@ MenuItem {
             anchors.verticalCenter: parent.verticalCenter
             text: item.text.replace("&", "")
             elide: Text.ElideRight
-            color: item.enabled ? Theme.text : Theme.textSecondary
+            color: !item.enabled ? Theme.textSecondary : item.danger ? Theme.danger : Theme.text
             opacity: item.enabled ? 1 : 0.55
             font.pixelSize: Theme.fontBody - 1
         }
@@ -38,13 +41,15 @@ MenuItem {
         }
     }
     indicator: Icon {
-        x: 10
+        x: item.iconName !== "" ? 14 : 10
         anchors.verticalCenter: parent.verticalCenter
-        visible: item.checkable && item.checked
-        name: "check"
-        size: 16
-        strokeWidth: 2.5
-        color: Theme.accent
+        visible: (item.checkable && item.checked) || item.iconName !== ""
+        name: item.checkable && item.checked ? "check" : item.iconName
+        size: item.iconName !== "" ? 18 : 16
+        strokeWidth: item.checkable && item.checked ? 2.5 : 1.8
+        color: item.checkable && item.checked ? Theme.accent
+             : !item.enabled ? Theme.textSecondary : item.danger ? Theme.danger : Theme.textSecondary
+        opacity: item.enabled ? 1 : 0.55
     }
     arrow: Icon {
         x: item.width - width - 8
