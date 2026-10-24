@@ -129,6 +129,10 @@ def print_image(path: str, opts: dict) -> str:
         printer.setOutputFormat(QPrinter.PdfFormat)
         printer.setOutputFileName(out)
     else:
+        # Qt silently falls back to the default printer for an unknown name (on Windows
+        # often "Microsoft Print to PDF", which then waits on a hidden Save dialog)
+        if printer_id not in QPrinterInfo.availablePrinterNames():
+            raise RuntimeError(f"Printer {printer_id} is not available")
         printer.setPrinterName(printer_id)
         if not printer.isValid():
             raise RuntimeError(f"Printer {printer_id} is not available")

@@ -16,7 +16,7 @@ permissions:
 jobs:
   windows:
     runs-on: windows-latest
-    timeout-minutes: 60
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@v4
 
@@ -36,6 +36,7 @@ jobs:
       - name: Unit tests
         shell: pwsh
         continue-on-error: true
+        timeout-minutes: 8   # a hanging test must not hold up the build
         env:
           QT_QPA_PLATFORM: offscreen
         run: |
@@ -44,6 +45,7 @@ jobs:
 
       - name: Build app and installer
         shell: pwsh
+        timeout-minutes: 40
         run: powershell -NoProfile -ExecutionPolicy Bypass -File packaging\windows\build.ps1 -SkipTests
 
       - uses: actions/upload-artifact@v4

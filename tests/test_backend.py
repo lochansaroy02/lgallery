@@ -166,6 +166,7 @@ class ThumbAndTrashTests(unittest.TestCase):
         self.assertLess(im.width, im.height)  # portrait after transpose
         self.assertEqual(min(im.size), thumbs.THUMB_SHORT_SIDE)
 
+    @unittest.skipIf(sys.platform == "win32", "the freedesktop trash is Linux-only (Windows: Recycle Bin)")
     def test_freedesktop_trash(self):
         victim = os.path.join(os.environ["XDG_DATA_HOME"], "victim.jpg")
         os.makedirs(os.path.dirname(victim), exist_ok=True)
