@@ -3,11 +3,11 @@ import QtQuick.Controls
 import "."
 import "components"
 
-// Main "Pictures" tab: every indexed picture, newest first, grouped by day.
+// Main "Pictures" tab: every indexed picture and video, newest first, grouped by day.
 PhotoGrid {
     id: pictures
     photoModel: photos
-    title: qsTr("Gallery")
+    title: qsTr("Pictures")
     busy: gallery.scanning
     showSettingsButton: true
     subtitle: gallery.scanning

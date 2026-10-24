@@ -2,34 +2,41 @@ import QtQuick
 import QtQuick.Controls
 import ".."
 
-// The large left-aligned title area at the top of a scrolling page.
+// The large title area at the top of a scrolling page. Like One UI, the title sits centred
+// in the space under the top bar, in a large display size, with the count underneath; it
+// shrinks and fades as the page scrolls and the small title in the top bar takes over.
 Item {
     id: big
     property string title: ""
     property string subtitle: ""
     property bool busy: false
     property real progress: 0
+    property bool centered: true
 
     Column {
-        anchors.left: parent.left
-        anchors.leftMargin: Theme.pageMargin + 4
-        anchors.right: parent.right
-        anchors.bottom: parent.bottom
-        anchors.bottomMargin: Theme.s6
+        id: block
+        x: big.centered ? (big.width - width) / 2 : Theme.pageMargin + 4
+        width: big.width - 2 * (Theme.pageMargin + 4)
+        // centred in the area below the top bar (Theme.barHeight)
+        y: big.centered ? Theme.barHeight + (big.height - Theme.barHeight - height) / 2
+                        : big.height - height - Theme.s6
         spacing: Theme.s2
         opacity: 1 - Math.min(1, big.progress * 1.6)
-        scale: 1 - big.progress * 0.08
-        transformOrigin: Item.BottomLeft
+        scale: 1 - big.progress * 0.1
+        transformOrigin: big.centered ? Item.Center : Item.BottomLeft
 
         Text {
             width: parent.width
             text: big.title
             elide: Text.ElideRight
+            horizontalAlignment: big.centered ? Text.AlignHCenter : Text.AlignLeft
             color: Theme.text
-            font.pixelSize: Theme.fontHuge
+            font.pixelSize: big.centered ? Theme.fontDisplay : Theme.fontHuge
             font.weight: Font.Bold
+            font.letterSpacing: big.centered ? -0.5 : 0
         }
         Row {
+            anchors.horizontalCenter: big.centered ? parent.horizontalCenter : undefined
             spacing: Theme.s2
             BusyIndicator {
                 visible: big.busy

@@ -67,6 +67,7 @@ QtObject {
     // ---- type -------------------------------------------------------------------
     readonly property string fontFamily: Qt.application.font.family
     readonly property int fontHuge: 38
+    readonly property int fontDisplay: 44    // One UI page title in the expanded header
     readonly property int fontTitle: 20
     readonly property int fontLarge: 17
     readonly property int fontBody: 15
