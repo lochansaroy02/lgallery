@@ -64,6 +64,22 @@ class ThemeTests(unittest.TestCase):
         self.assertEqual(s.colorStyle, "tinted")
         s.colorStyle = "neutral"
 
+    def test_nav_style_setting(self):
+        s = Settings()
+        self.assertEqual(s.navStyle, "solid")            # the existing bar by default
+        for style in ("frosted", "clear", "solid"):
+            s.navStyle = style
+            self.assertEqual(s.navStyle, style)
+        s.navStyle = "mirror"                            # unknown values are ignored
+        self.assertEqual(s.navStyle, "solid")
+
+    def test_glass_shader_compiled(self):
+        shaders = ROOT / "qml" / "shaders"
+        qsb = shaders / "liquidglass.frag.qsb"
+        self.assertTrue(qsb.exists() and qsb.stat().st_size > 1000)
+        self.assertGreaterEqual(qsb.stat().st_mtime, (shaders / "liquidglass.frag").stat().st_mtime - 1,
+                                "liquidglass.frag changed: run qml/shaders/build.sh")
+
     def test_black_and_white_unchanged(self):
         light, dark = self.roles("neutral", False), self.roles("neutral", True)
         self.assertEqual(light["bg"].name(), "#f6f6f6")

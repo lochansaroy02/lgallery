@@ -264,54 +264,62 @@ ApplicationWindow {
                 Behavior on opacity { NumberAnimation { duration: Theme.durNormal } }
             }
 
-            Tab {
-                tabIndex: 0
-                PicturesView {
-                    id: pictures
-                    anchors.fill: parent
-                    bottomInset: root.navInset
-                    onSearchRequested: root.openSearch()
-                    onSettingsRequested: root.openSettings()
+            // the pages under the nav bar: what its Liquid Glass shows through
+            Item {
+                id: tabContent
+                anchors.fill: parent
+                // same colour as the window: gives the glass an opaque picture of the page
+                Rectangle { anchors.fill: parent; color: Theme.bg }
+
+                Tab {
+                    tabIndex: 0
+                    PicturesView {
+                        id: pictures
+                        anchors.fill: parent
+                        bottomInset: root.navInset
+                        onSearchRequested: root.openSearch()
+                        onSettingsRequested: root.openSettings()
+                    }
                 }
-            }
-            Tab {
-                tabIndex: 1
-                VideosView {
-                    id: videosTab
-                    anchors.fill: parent
-                    bottomInset: root.navInset
-                    onSearchRequested: root.openSearch()
-                    onSettingsRequested: root.openSettings()
+                Tab {
+                    tabIndex: 1
+                    VideosView {
+                        id: videosTab
+                        anchors.fill: parent
+                        bottomInset: root.navInset
+                        onSearchRequested: root.openSearch()
+                        onSettingsRequested: root.openSettings()
+                    }
                 }
-            }
-            Tab {
-                tabIndex: 2
-                AlbumsView {
-                    anchors.fill: parent
-                    bottomInset: root.navInset
-                    onOpenAlbum: (kind, key, title) => root.openAlbum(kind, key, title)
-                    onSearchRequested: root.openSearch()
-                    onSettingsRequested: root.openSettings()
+                Tab {
+                    tabIndex: 2
+                    AlbumsView {
+                        anchors.fill: parent
+                        bottomInset: root.navInset
+                        onOpenAlbum: (kind, key, title) => root.openAlbum(kind, key, title)
+                        onSearchRequested: root.openSearch()
+                        onSettingsRequested: root.openSettings()
+                    }
                 }
-            }
-            Tab {
-                tabIndex: 3
-                CollectionsView {
-                    anchors.fill: parent
-                    bottomInset: root.navInset
-                    onPlayStory: (story) => root.playStory(story)
-                    onOpenPeople: root.openPeople()
-                    onOpenPlaces: root.openPlaces()
-                    onOpenPerson: (personId, name) => root.openPerson(personId, name)
-                    onOpenPlace: (key, name) => root.openPlace(key, name)
+                Tab {
+                    tabIndex: 3
+                    CollectionsView {
+                        anchors.fill: parent
+                        bottomInset: root.navInset
+                        onPlayStory: (story) => root.playStory(story)
+                        onOpenPeople: root.openPeople()
+                        onOpenPlaces: root.openPlaces()
+                        onOpenPerson: (personId, name) => root.openPerson(personId, name)
+                        onOpenPlace: (key, name) => root.openPlace(key, name)
+                    }
                 }
-            }
-            Tab {
-                tabIndex: 4
-                FoldersView {
-                    anchors.fill: parent
-                    bottomInset: root.navInset
-                    onSettingsRequested: root.openSettings()
+                Tab {
+                    tabIndex: 4
+                    FoldersView {
+                        anchors.fill: parent
+                        bottomInset: root.navInset
+                        onSettingsRequested: root.openSettings()
+                    }
                 }
             }
 
@@ -321,6 +329,8 @@ ApplicationWindow {
                 anchors.bottomMargin: tabs.grid && tabs.grid.selectMode ? -height - 20 : Theme.s5
                 Behavior on anchors.bottomMargin { NumberAnimation { duration: Theme.durNormal; easing.type: Theme.easing } }
                 maxWidth: tabs.width - 2 * Theme.s4
+                glass: prefs.navStyle
+                backdrop: tabContent
                 currentIndex: tabs.current
                 onSelected: (i) => tabs.current = i
             }

@@ -322,6 +322,12 @@ QtObject {
                 MenuSpec { text: qsTr("Material You (from the accent colour)"); checkable: true; checked: prefs.colorStyle === "tinted"; onTriggered: prefs.colorStyle = "tinted" }
             }
             MenuSpec {
+                text: qsTr("Navigation Bar")
+                MenuSpec { text: qsTr("Solid"); checkable: true; checked: prefs.navStyle === "solid"; onTriggered: prefs.navStyle = "solid" }
+                MenuSpec { text: qsTr("Frosted Glass"); checkable: true; checked: prefs.navStyle === "frosted"; onTriggered: prefs.navStyle = "frosted" }
+                MenuSpec { text: qsTr("Clear Glass"); checkable: true; checked: prefs.navStyle === "clear"; onTriggered: prefs.navStyle = "clear" }
+            }
+            MenuSpec {
                 text: qsTr("Accent Colour")
                 submenu: true
                 model: [{ text: qsTr("System (KDE accent colour)"), value: "system", checked: prefs.accent === "system" }]

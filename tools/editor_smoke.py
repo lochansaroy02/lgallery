@@ -85,7 +85,7 @@ count0 = gallery.photos.itemCount
 print("pictures:", count0)
 
 # ---- open the editor from the viewer
-js("openViewer(currentGrid, 0)")
+js("Qt.callLater(function() { openViewer(currentGrid, 0) })"); pump(400)
 pump(800)
 path0 = js("viewer.info.path")
 js("openEditor(viewer.info)")
@@ -134,7 +134,7 @@ check("original untouched (no backup)", not editor_mod.has_original(path0))
 js("viewer.close()")
 pump(600)
 idx = gallery.photos.indexOfPath(path0)
-js(f"openViewer(currentGrid, {idx})")
+js(f"Qt.callLater(function() {{ openViewer(currentGrid, {idx}) }})"); pump(400)
 pump(800)
 with open(path0, "rb") as f:
     original_bytes = f.read()

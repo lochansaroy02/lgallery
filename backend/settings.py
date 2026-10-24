@@ -16,6 +16,7 @@ DEFAULTS = {
     "theme": "system",        # system | light | dark
     "accent": "system",       # system (KDE accent colour) | "#rrggbb"
     "color_style": "neutral", # neutral (black & white) | tinted (Material You, from the accent)
+    "nav_style": "solid",     # solid | frosted | clear (Liquid Glass navigation bar)
     "min_size_kb": 20,
     "columns": 6,
     "albums_by_subfolder": False,
@@ -49,6 +50,7 @@ class Settings(QObject):
     themeChanged = Signal()
     accentChanged = Signal()
     colorStyleChanged = Signal()
+    navStyleChanged = Signal()
     minSizeKbChanged = Signal()
     columnsChanged = Signal()
     albumsBySubfolderChanged = Signal()
@@ -180,6 +182,16 @@ class Settings(QObject):
             self._set("color_style", value, self.colorStyleChanged)
 
     colorStyle = Property(str, _get_color_style, _set_color_style, notify=colorStyleChanged)
+
+    def _get_nav_style(self):
+        value = self._data.get("nav_style", "solid")
+        return value if value in ("solid", "frosted", "clear") else "solid"
+
+    def _set_nav_style(self, value):
+        if value in ("solid", "frosted", "clear"):
+            self._set("nav_style", value, self.navStyleChanged)
+
+    navStyle = Property(str, _get_nav_style, _set_nav_style, notify=navStyleChanged)
 
     def _get_min_size(self):
         return int(self._data["min_size_kb"])

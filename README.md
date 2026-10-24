@@ -26,6 +26,12 @@ LGallery is a desktop photo and video gallery for Arch-based Linux (Manjaro) on 
   - **Black & white** (the default): One UI's pure white / pure black surfaces, with the accent colour only on highlights.
   - **Material You**: like Android 12+, the whole palette is generated from the accent colour. Backgrounds, cards, the bottom bar, text, dividers and grid placeholders take soft tones of its hue, and the accent itself becomes a deeper tone in light mode and a pastel one in dark mode.
   - Layout and components are the same in both; only the colours change.
+- **Navigation bar** (**Settings → Appearance**, or **View ▸ Navigation Bar**): **Solid** (the default), or Liquid Glass like iOS 26:
+  - **Frosted:** the pictures behind the bar are blurred under a milky layer of the bar's colour.
+  - **Clear:** the bar is see-through, with a light veil for legibility.
+  - Both bend what's behind them at the rim like thick glass, with a slight colour fringe and a highlight along the top edge.
+  - Glass needs GPU rendering. Where Qt draws in software (some virtual machines, `QT_QUICK_BACKEND=software`), the bar stays solid.
+  - The shader is `qml/shaders/liquidglass.frag`. Run `qml/shaders/build.sh` after editing it; the compiled `.qsb` is committed.
 - **Accent colour:** by default Gallery uses **KDE's accent colour** (*System Settings → Colors & Themes → Colors → Accent color*, including *From wallpaper*), and it updates live when you change it. **Settings → Appearance → Accent colour** (or **View ▸ Accent Colour**) offers 12 other colours or any custom colour.
 
 ## Install from the AUR (easiest)

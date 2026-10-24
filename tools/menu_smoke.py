@@ -74,7 +74,7 @@ check("Copy Path enabled with a selection", enabled("Edit", "Copy Path") is True
 trig("Edit", "Deselect All"); pump(200)
 check("Deselect All leaves selection mode", js("currentGrid.selectMode") is False)
 # viewer context
-js("openViewer(currentGrid, 3)"); pump(800)
+js("Qt.callLater(function() { openViewer(currentGrid, 3) })"); pump(1200)  # deferred: see collections_smoke
 path = js("viewer.info.path")
 check("Edit Picture enabled in viewer", enabled("Edit", "Edit Picture…") is True)
 trig("Go", "Next Picture"); pump(400)

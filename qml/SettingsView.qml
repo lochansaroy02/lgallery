@@ -147,6 +147,22 @@ Item {
                         onPicked: (v) => prefs.colorStyle = v
                     }
                 }
+                SettingRow {
+                    title: qsTr("Navigation bar")
+                    subtitle: prefs.navStyle === "clear" ? qsTr("Clear glass: the page shows through, bent at the edges")
+                            : prefs.navStyle === "frosted" ? qsTr("Frosted glass: the page behind is blurred")
+                            : qsTr("Solid bar")
+                    Segmented {
+                        width: 270
+                        value: prefs.navStyle
+                        options: [
+                            { value: "solid", label: qsTr("Solid") },
+                            { value: "frosted", label: qsTr("Frosted") },
+                            { value: "clear", label: qsTr("Clear") }
+                        ]
+                        onPicked: (v) => prefs.navStyle = v
+                    }
+                }
                 Item {
                     width: parent.width
                     height: accentColumn.implicitHeight + 24
