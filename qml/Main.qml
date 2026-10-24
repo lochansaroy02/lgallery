@@ -27,11 +27,17 @@ ApplicationWindow {
     readonly property color systemAccent: gallery.systemAccent !== "" ? gallery.systemAccent : Theme.defaultAccent
     Binding {
         target: Theme
-        property: "accent"
+        property: "seedColor"
         value: prefs.accent === "system" ? root.systemAccent : prefs.accent
     }
+    // Black & white (One UI) or Material You (the whole palette from the accent)
+    Binding {
+        target: Theme
+        property: "colorStyle"
+        value: prefs.colorStyle
+    }
     function pickCustomAccent() {
-        accentDialog.selectedColor = Theme.accent
+        accentDialog.selectedColor = Theme.seedColor
         accentDialog.open()
     }
 

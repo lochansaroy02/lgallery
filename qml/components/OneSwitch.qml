@@ -13,7 +13,7 @@ Item {
     Rectangle {
         anchors.fill: parent
         radius: height / 2
-        color: sw.checked ? Theme.accent : (Theme.dark ? "#48484A" : "#C9C9CE")
+        color: sw.checked ? Theme.accent : Theme.switchOff
         Behavior on color { ColorAnimation { duration: Theme.durNormal } }
         Rectangle {
             width: 22

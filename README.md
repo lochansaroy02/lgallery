@@ -22,6 +22,10 @@ LGallery is a desktop photo and video gallery for Arch-based Linux (Manjaro) on 
 - **Search:** by file name, folder or date (`2025`, `October`, `oct 2024`, `Screenshot`).
 - **Live updates** (needs watchdog). Folders on unmounted drives are kept and marked *unavailable* instead of being removed.
 - **Themes:** light and dark. By default it follows your KDE colour scheme, and you can override that in Settings.
+- **Colour style** (**Settings → Appearance**, or **View ▸ Colour Style**):
+  - **Black & white** (the default): One UI's pure white / pure black surfaces, with the accent colour only on highlights.
+  - **Material You**: like Android 12+, the whole palette is generated from the accent colour. Backgrounds, cards, the bottom bar, text, dividers and grid placeholders take soft tones of its hue, and the accent itself becomes a deeper tone in light mode and a pastel one in dark mode.
+  - Layout and components are the same in both; only the colours change.
 - **Accent colour:** by default Gallery uses **KDE's accent colour** (*System Settings → Colors & Themes → Colors → Accent color*, including *From wallpaper*), and it updates live when you change it. **Settings → Appearance → Accent colour** (or **View ▸ Accent Colour**) offers 12 other colours or any custom colour.
 
 ## Install from the AUR (easiest)

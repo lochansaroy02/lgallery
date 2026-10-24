@@ -15,6 +15,7 @@ DEFAULTS = {
     "folders": [],            # [{"path": "/abs/path", "mount": "/mount/point", "exclude": [...]}]
     "theme": "system",        # system | light | dark
     "accent": "system",       # system (KDE accent colour) | "#rrggbb"
+    "color_style": "neutral", # neutral (black & white) | tinted (Material You, from the accent)
     "min_size_kb": 20,
     "columns": 6,
     "albums_by_subfolder": False,
@@ -47,6 +48,7 @@ class Settings(QObject):
     foldersChanged = Signal()
     themeChanged = Signal()
     accentChanged = Signal()
+    colorStyleChanged = Signal()
     minSizeKbChanged = Signal()
     columnsChanged = Signal()
     albumsBySubfolderChanged = Signal()
@@ -168,6 +170,16 @@ class Settings(QObject):
         self._set("accent", value, self.accentChanged)
 
     accent = Property(str, _get_accent, _set_accent, notify=accentChanged)
+
+    def _get_color_style(self):
+        value = self._data.get("color_style", "neutral")
+        return value if value in ("neutral", "tinted") else "neutral"
+
+    def _set_color_style(self, value):
+        if value in ("neutral", "tinted"):
+            self._set("color_style", value, self.colorStyleChanged)
+
+    colorStyle = Property(str, _get_color_style, _set_color_style, notify=colorStyleChanged)
 
     def _get_min_size(self):
         return int(self._data["min_size_kb"])

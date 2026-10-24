@@ -132,6 +132,21 @@ Item {
                         onPicked: (v) => prefs.theme = v
                     }
                 }
+                SettingRow {
+                    title: qsTr("Colour style")
+                    subtitle: prefs.colorStyle === "tinted"
+                              ? qsTr("Every surface takes tones of the accent colour")
+                              : qsTr("Pure black and white, accent on highlights")
+                    Segmented {
+                        width: 270
+                        value: prefs.colorStyle
+                        options: [
+                            { value: "neutral", label: qsTr("Black & white") },
+                            { value: "tinted", label: qsTr("Material You") }
+                        ]
+                        onPicked: (v) => prefs.colorStyle = v
+                    }
+                }
                 Item {
                     width: parent.width
                     height: accentColumn.implicitHeight + 24

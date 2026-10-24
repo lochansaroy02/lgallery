@@ -17,7 +17,7 @@ Rectangle {
     Icon {
         anchors.centerIn: parent
         name: "check"
-        color: "white"
+        color: Theme.tinted ? Theme.accentText : "white"
         size: c.size * 0.62
         strokeWidth: 3
         visible: c.checked

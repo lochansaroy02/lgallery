@@ -317,6 +317,11 @@ QtObject {
                 MenuSpec { text: qsTr("Dark"); checkable: true; checked: prefs.theme === "dark"; onTriggered: prefs.theme = "dark" }
             }
             MenuSpec {
+                text: qsTr("Colour Style")
+                MenuSpec { text: qsTr("Black && White"); checkable: true; checked: prefs.colorStyle === "neutral"; onTriggered: prefs.colorStyle = "neutral" }
+                MenuSpec { text: qsTr("Material You (from the accent colour)"); checkable: true; checked: prefs.colorStyle === "tinted"; onTriggered: prefs.colorStyle = "tinted" }
+            }
+            MenuSpec {
                 text: qsTr("Accent Colour")
                 submenu: true
                 model: [{ text: qsTr("System (KDE accent colour)"), value: "system", checked: prefs.accent === "system" }]
