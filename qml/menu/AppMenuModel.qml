@@ -446,8 +446,9 @@ QtObject {
 
         MenuSpec {
             text: qsTr("&Settings")
-            MenuSpec { text: qsTr("Settings…"); shortcut: "Ctrl+,"; enabled: !app.editing; onTriggered: { if (app.viewing) app.viewer.close(); win.openSettings() } }
-            MenuSpec { separator: true }
+            // in the ⋮ menu, Settings is the gear in the nav bar instead
+            MenuSpec { text: qsTr("Settings…"); shortcut: "Ctrl+,"; inPopup: false; enabled: !app.editing; onTriggered: { if (app.viewing) app.viewer.close(); win.openSettings() } }
+            MenuSpec { separator: true; inPopup: false }
             MenuSpec {
                 text: qsTr("Live Updates")
                 checkable: true; checked: prefs.liveUpdates && gallery.liveUpdatesSupported

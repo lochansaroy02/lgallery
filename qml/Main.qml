@@ -214,9 +214,9 @@ ApplicationWindow {
     function openSearch() {
         if (!(stack.currentItem && stack.currentItem.isSearch)) stack.push(searchPage)
     }
-    function openSettings() {
-        if (!(stack.currentItem && stack.currentItem.isSettings)) stack.push(settingsPage)
-    }
+    readonly property int settingsTab: 5
+    property var settingsView: null
+    function openSettings() { goTab(settingsTab) }
     function goBack() {
         if (playingVideo) videoPlayer.dismiss()
         else if (storyPlayer.visible) storyPlayer.close()
@@ -319,6 +319,15 @@ ApplicationWindow {
                         anchors.fill: parent
                         bottomInset: root.navInset
                         onSettingsRequested: root.openSettings()
+                    }
+                }
+                Tab {
+                    tabIndex: 5
+                    SettingsView {
+                        anchors.fill: parent
+                        Component.onCompleted: root.settingsView = this
+                        showBack: false
+                        bottomInset: root.navInset
                     }
                 }
             }
@@ -449,14 +458,6 @@ ApplicationWindow {
         PlacesPage {
             onBackRequested: stack.pop()
             onOpenPlace: (key, name) => root.openPlace(key, name)
-        }
-    }
-
-    Component {
-        id: settingsPage
-        SettingsView {
-            readonly property bool isSettings: true
-            onBackRequested: stack.pop()
         }
     }
 

@@ -7,6 +7,11 @@ import "components"
 Item {
     id: page
     signal backRequested()
+    property bool showBack: true      // false when it is the Settings tab
+    property real bottomInset: 0      // room for the floating nav bar
+    readonly property alias flick: flick
+    // the System / Light / Dark style choices shrink on narrow windows to leave room for text
+    readonly property real segmentWidth: Math.max(190, Math.min(270, width - 250))
     readonly property real headerHeight: Math.max(150, Math.min(250, height * 0.3))
     readonly property real collapse: Math.max(0, Math.min(1, flick.contentY / (headerHeight * 0.7)))
 
@@ -62,7 +67,7 @@ Item {
                 width: parent.width
                 visible: subtitle !== ""
                 text: subtitle
-                wrapMode: Text.WrapAnywhere
+                wrapMode: Text.Wrap   // between words; long paths still wrap
                 color: Theme.textSecondary
                 font.pixelSize: Theme.fontSmall
             }
@@ -83,7 +88,7 @@ Item {
         width: parent.width
         title: qsTr("Settings")
         progress: page.collapse
-        showBack: true
+        showBack: page.showBack
         onBackClicked: page.backRequested()
     }
 
@@ -100,7 +105,7 @@ Item {
         width: parent.width
         clip: true
         boundsBehavior: Flickable.StopAtBounds
-        contentHeight: col.height + Theme.s6 * 2
+        contentHeight: col.height + Theme.s6 * 2 + page.bottomInset
         ScrollBar.vertical: ScrollBar { }
 
         Column {
@@ -122,7 +127,7 @@ Item {
                     title: qsTr("Theme")
                     subtitle: qsTr("System follows your KDE colour scheme")
                     Segmented {
-                        width: 270
+                        width: page.segmentWidth
                         value: prefs.theme
                         options: [
                             { value: "system", label: qsTr("System") },
@@ -138,7 +143,7 @@ Item {
                               ? qsTr("Every surface takes tones of the accent colour")
                               : qsTr("Pure black and white, accent on highlights")
                     Segmented {
-                        width: 270
+                        width: page.segmentWidth
                         value: prefs.colorStyle
                         options: [
                             { value: "neutral", label: qsTr("Black & white") },
@@ -153,7 +158,7 @@ Item {
                             : prefs.navStyle === "frosted" ? qsTr("Frosted glass: the page behind is blurred")
                             : qsTr("Solid bar")
                     Segmented {
-                        width: 270
+                        width: page.segmentWidth
                         value: prefs.navStyle
                         options: [
                             { value: "solid", label: qsTr("Solid") },

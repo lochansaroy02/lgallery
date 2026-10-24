@@ -16,6 +16,7 @@ QtObject {
     property bool separator: false
     property bool submenu: false      // force a submenu even if it only has a dynamic model
     property bool dynamicFirst: false // list model entries before the static children
+    property bool inPopup: true       // false: only in the KDE global menu, not the ⋮ menu
     property var model: null
     default property list<QtObject> items
     readonly property bool isMenu: submenu || items.length > 0

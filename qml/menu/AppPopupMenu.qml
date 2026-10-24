@@ -20,6 +20,7 @@ StyledMenu {
 
     function build() {
         for (const spec of specs) {
+            if (spec.inPopup === false) continue
             const sub = menuComp.createObject(root, { title: spec.text.replace("&", "") })
             fill(sub, spec)
             root.addMenu(sub)
@@ -60,6 +61,7 @@ StyledMenu {
     }
 
     function addEntry(menu, child) {
+        if (child.inPopup === false) return
         if (child.separator) {
             menu.addItem(separatorComp.createObject(menu.contentItem, { visible: Qt.binding(() => child.visible) }))
             return

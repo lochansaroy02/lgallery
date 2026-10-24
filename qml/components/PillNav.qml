@@ -14,7 +14,8 @@ Item {
         { label: qsTr("Videos"), icon: "video" },
         { label: qsTr("Albums"), icon: "albums" },
         { label: qsTr("Collections"), icon: "collections" },
-        { label: qsTr("Folders"), icon: "folder" }
+        { label: qsTr("Folders"), icon: "folder" },
+        { label: qsTr("Settings"), icon: "gear" }
     ]
     signal selected(int index)
 
