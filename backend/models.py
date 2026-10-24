@@ -1,8 +1,9 @@
 """Qt models: the date-grouped photo grid and the album list.
 
 The photo grid is a ListView whose rows are runs of `columns` thumbnails; each
-row carries its day as the ListView section, which gives One UI style sticky
-day headers without a nested view per day.
+row carries its group (day, month or year) as the ListView section, which gives
+One UI style sticky headers without a nested view per group. Zooming out (more
+columns) groups by month, then by year, like One UI Gallery and Google Photos.
 """
 
 import bisect
@@ -24,6 +25,17 @@ log = logging.getLogger(__name__)
 
 # item layout (lists so favorite can be updated in place)
 F_ID, F_PATH, F_TAKEN, F_MTIME, F_W, F_H, F_SIZE, F_AVAIL, F_FAV, F_VIDEO, F_DUR, F_DAY = range(12)
+
+# grouping by zoom level: up to 6 columns by day, 7-9 by month, 10+ by year
+GROUP_MONTH_FROM = 7
+GROUP_YEAR_FROM = 10
+
+
+def group_for_columns(columns: int) -> str:
+    if columns >= GROUP_YEAR_FROM:
+        return "year"
+    return "month" if columns >= GROUP_MONTH_FROM else "day"
+
 
 COLUMNS_SQL = "id, path, taken, mtime, width, height, size, available, favorite, video, duration"
 
@@ -122,6 +134,7 @@ class PhotoModel(QAbstractListModel):
     RowStartRole = Qt.UserRole + 3
 
     columnsChanged = Signal()
+    groupByChanged = Signal()
     itemCountChanged = Signal()
     selectionChanged = Signal()
     loadingChanged = Signal()
@@ -133,7 +146,9 @@ class PhotoModel(QAbstractListModel):
         super().__init__(parent)
         self._items: list[list] = []
         self._video_count = 0
-        self._rows: list[tuple[int, int, int]] = []  # (start, end, day)
+        self._rows: list[tuple[int, int, str]] = []  # (start, end, section)
+        self._group = group_for_columns(columns)
+        self._month_year: dict[int, tuple[int, int]] = {}  # day ordinal -> (year, month)
         self._row_starts: list[int] = []
         self._columns = columns
         self._selected: set[int] = set()
@@ -141,7 +156,7 @@ class PhotoModel(QAbstractListModel):
         self._kind, self._value = kind, value
         self._generation = 0
         self._loading = False
-        self._label_cache: dict[int, str] = {}
+        self._label_cache: dict[int | str, str] = {}
         self._external_files: list[str] = []
         self._external_quick = False
         self._ascending = False
@@ -223,17 +238,29 @@ class PhotoModel(QAbstractListModel):
             self.selectionChanged.emit()
         self.viewReset.emit()
 
+    def _section(self, day: int) -> str:
+        """Section key of a day ordinal at the current zoom: "738800", "m202610" or "y2026"."""
+        if self._group == "day":
+            return str(day)
+        ym = self._month_year.get(day)
+        if ym is None:
+            d = date.fromordinal(day)
+            ym = self._month_year[day] = (d.year, d.month)
+        return f"y{ym[0]}" if self._group == "year" else f"m{ym[0]}{ym[1]:02d}"
+
     def _rebuild_rows(self):
         rows = []
         items, cols, n = self._items, self._columns, len(self._items)
         i = 0
         while i < n:
-            day = items[i][F_DAY]
+            key = self._section(items[i][F_DAY])
             j = i + 1
-            while j < n and items[j][F_DAY] == day:
+            last_day = items[i][F_DAY]
+            while j < n and (items[j][F_DAY] == last_day or self._section(items[j][F_DAY]) == key):
+                last_day = items[j][F_DAY]
                 j += 1
             for s in range(i, j, cols):
-                rows.append((s, min(s + cols, j), day))
+                rows.append((s, min(s + cols, j), key))
             i = j
         self._rows = rows
         self._row_starts = [r[0] for r in rows]
@@ -267,7 +294,7 @@ class PhotoModel(QAbstractListModel):
     def data(self, index, role=Qt.DisplayRole):
         if not index.isValid() or index.row() >= len(self._rows):
             return None
-        start, end, day = self._rows[index.row()]
+        start, end, section = self._rows[index.row()]
         if role == self.ItemsRole:
             sel = self._selected
             return [
@@ -283,7 +310,7 @@ class PhotoModel(QAbstractListModel):
                 for i, it in ((i, self._items[i]) for i in range(start, end))
             ]
         if role == self.SectionRole:
-            return str(day)
+            return section
         if role == self.RowStartRole:
             return start
         return None
@@ -305,15 +332,27 @@ class PhotoModel(QAbstractListModel):
         value = max(1, int(value))
         if value == self._columns:
             return
+        group = group_for_columns(value)
         self.viewAboutToReset.emit()
         self.beginResetModel()
         self._columns = value
+        group_changed = group != self._group
+        self._group = group
+        if group_changed:
+            self._label_cache.clear()
         self._rebuild_rows()
         self.endResetModel()
         self.columnsChanged.emit()
+        if group_changed:
+            self.groupByChanged.emit()
         self.viewReset.emit()
 
     columns = Property(int, _get_columns, _set_columns, notify=columnsChanged)
+
+    @Property(str, notify=groupByChanged)
+    def groupBy(self):
+        """"day", "month" or "year" (follows the column count)."""
+        return self._group
 
     def set_ascending(self, value: bool):
         if bool(value) != self._ascending:
@@ -396,6 +435,17 @@ class PhotoModel(QAbstractListModel):
 
     @Slot(str, result=str)
     def dayLabel(self, day):
+        """Header text for a section: "Today", "Fri, Oct 23", "October", "May 2025", "2025"."""
+        if day.startswith("y"):
+            return day[1:]
+        if day.startswith("m"):
+            label = self._label_cache.get(day)
+            if label is None:
+                year, month = int(day[1:5]), int(day[5:7])
+                name = QLocale().standaloneMonthName(month, QLocale.LongFormat)
+                label = name if year == date.today().year else f"{name} {year}"
+                self._label_cache[day] = label
+            return label
         try:
             ordinal = int(day)
         except ValueError:
@@ -419,7 +469,9 @@ class PhotoModel(QAbstractListModel):
         if not self._rows:
             return ""
         row = max(0, min(row, len(self._rows) - 1))
-        d = date.fromordinal(self._rows[row][2])
+        d = date.fromordinal(self._items[self._rows[row][0]][F_DAY])
+        if self._group == "year":
+            return str(d.year)
         return QLocale().toString(QDate(d.year, d.month, d.day), "MMMM yyyy")
 
     @Slot(int, result="QVariantMap")
@@ -484,13 +536,10 @@ class PhotoModel(QAbstractListModel):
         self._rows_changed(range(lo, hi + 1))
         self.selectionChanged.emit()
 
-    def _day_range(self, day):
-        try:
-            ordinal = int(day)
-        except ValueError:
-            return range(0)
-        idx = [i for i, it in enumerate(self._items) if it[F_DAY] == ordinal]
-        return range(idx[0], idx[-1] + 1) if idx else range(0)
+    def _day_range(self, section):
+        """Items under a section header (a day, month or year at the current zoom)."""
+        rows = [r for r in self._rows if r[2] == section]
+        return range(rows[0][0], rows[-1][1]) if rows else range(0)
 
     @Slot(str, result=bool)
     def isDaySelected(self, day):

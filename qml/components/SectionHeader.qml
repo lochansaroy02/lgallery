@@ -1,12 +1,14 @@
 import QtQuick
 import ".."
 
-// Sticky day header ("Today", "Yesterday", "Fri, Oct 23"). Opaque so it covers rows.
+// Sticky group header: a day ("Today", "Fri, Oct 23"), a month ("October", "May 2025") or
+// a year ("2025") depending on the zoom level. Opaque so it covers rows.
 Rectangle {
     id: header
     property string label: ""
     property bool selecting: false
     property bool checked: false
+    property string level: "day"      // day | month | year
     signal toggle()
 
     height: Theme.sectionHeight
@@ -33,8 +35,9 @@ Rectangle {
             anchors.verticalCenter: parent.verticalCenter
             text: header.label
             color: Theme.text
-            font.pixelSize: Theme.fontBody
-            font.weight: Font.DemiBold
+            font.pixelSize: header.level === "year" ? Theme.fontTitle + 2
+                          : header.level === "month" ? Theme.fontLarge + 1 : Theme.fontBody
+            font.weight: header.level === "day" ? Font.DemiBold : Font.Bold
         }
     }
     MouseArea {

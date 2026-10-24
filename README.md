@@ -23,9 +23,29 @@ LGallery is a desktop photo and video gallery for Arch-based Linux (Manjaro) on 
 - **Themes:** light and dark. By default it follows your KDE colour scheme, and you can override that in Settings.
 - **Accent colour:** by default Gallery uses **KDE's accent colour** (*System Settings → Colors & Themes → Colors → Accent color*, including *From wallpaper*), and it updates live when you change it. **Settings → Appearance → Accent colour** (or **View ▸ Accent Colour**) offers 12 other colours or any custom colour.
 
-## Install on Arch / Manjaro
+## Install from the AUR (easiest)
 
-There are two ways to install LGallery as a KDE app. Both add **Gallery** to the application launcher (under *Graphics*) with its own icon, so you can pin it to the panel or task manager like any other app.
+LGallery is in the [Arch User Repository](https://aur.archlinux.org/packages/lgallery). Install it with an AUR helper:
+
+```bash
+yay -S lgallery          # or: paru -S lgallery
+```
+
+Updates then come with your normal system update (`yay` / `paru`). `lgallery-git` instead builds the newest commit (`yay -S lgallery-git`, updated by `yay -Syu --devel`).
+
+`pacman` itself can't download from the AUR. Without a helper, build it by hand:
+
+```bash
+sudo pacman -S --needed base-devel git
+git clone https://aur.archlinux.org/lgallery.git
+cd lgallery && makepkg -si
+```
+
+Optional extras: `sudo pacman -S python-pillow-heif python-opencv python-watchdog purpose` (HEIC photos, People, live updates, the KDE share menu).
+
+## Install from source on Arch / Manjaro
+
+There are two ways to install LGallery as a KDE app from a checkout. Both add **Gallery** to the application launcher (under *Graphics*) with its own icon, so you can pin it to the panel or task manager like any other app.
 
 | | Option A: user install | Option B: Arch package |
 | --- | --- | --- |
@@ -88,7 +108,7 @@ cd packaging
 makepkg -si
 ```
 
-This installs `/usr/bin/lgallery`, `/usr/share/lgallery/`, `/usr/share/applications/lgallery.desktop` and the icon. **Gallery** then appears in the launcher for all users. HEIC support is optional: `yay -S python-pillow-heif`.
+This installs `/usr/bin/lgallery`, `/usr/share/lgallery/`, `/usr/share/applications/lgallery.desktop` and the icon. **Gallery** then appears in the launcher for all users. HEIC support is optional: `sudo pacman -S python-pillow-heif`.
 
 **Update:** `./update.sh` (see [Updating](#updating)).
 **Uninstall:** `sudo pacman -R lgallery`
@@ -280,6 +300,33 @@ Items enable themselves from context: a picture open in the viewer, a selection,
 | Editor: Ctrl+Z / Ctrl+Shift+Z | Undo / Redo |
 | Editor: Ctrl+S / Ctrl+Shift+S | Save / Save as copy |
 | Editor: hold \\ | Compare with the original |
+
+## Publishing to the AUR
+
+For the maintainer. The recipes are in `packaging/aur/`: `lgallery` builds tagged releases (downloaded from GitHub), and `lgallery-git` builds the latest commit. `packaging/aur/publish.sh` checks, builds and uploads them.
+
+**One-time setup** (on Arch / Manjaro):
+
+1. Create an account on <https://aur.archlinux.org/register>.
+2. Make an SSH key and add the **public** key under *My Account → SSH Public Key*:
+   ```bash
+   ssh-keygen -t ed25519 -f ~/.ssh/aur -C "aur"
+   cat ~/.ssh/aur.pub          # paste this on the AUR website
+   printf 'Host aur.archlinux.org\n  IdentityFile ~/.ssh/aur\n  User aur\n' >> ~/.ssh/config
+   ```
+3. Install the tools: `sudo pacman -S --needed base-devel git pacman-contrib namcap`.
+4. Put your name in the first line of `packaging/aur/lgallery/PKGBUILD` and `packaging/aur/lgallery-git/PKGBUILD`:
+   `# Maintainer: Your Name <you at example dot com>` (the AUR shows this publicly).
+
+**Releasing a version:**
+
+1. Set the version in `backend/__init__.py`, `pyproject.toml`, `packaging/PKGBUILD` and `packaging/aur/lgallery/PKGBUILD` (`pkgver=`, with `pkgrel=1`). Commit and push.
+2. Tag the release and push the tag: `git tag v0.3.0 && git push origin v0.3.0`.
+3. Try it without uploading: `packaging/aur/publish.sh --dry-run`.
+4. Upload: `packaging/aur/publish.sh`. It fills in the checksum, builds both packages, writes `.SRCINFO` and pushes them to `ssh://aur@aur.archlinux.org/<package>.git`.
+5. Commit the updated `packaging/aur/*/PKGBUILD` files.
+
+To fix only the packaging of the same version (a dependency, say), raise `pkgrel` instead of the version and run `publish.sh lgallery`. The `-git` package needs re-uploading only when its PKGBUILD changes; yay and paru rebuild it from new commits on their own.
 
 ## Where data lives
 

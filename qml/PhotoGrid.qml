@@ -227,6 +227,7 @@ Item {
             required property string section
             width: ListView.view ? ListView.view.width : 0
             label: grid.photoModel.dayLabel(section)
+            level: grid.photoModel.groupBy
             selecting: grid.selectMode
             checked: grid.selectMode && grid.photoModel.selectionCount >= 0
                      && grid.photoModel.isDaySelected(section)
@@ -283,6 +284,40 @@ Item {
                 if (activeScale / base > 1.25) { grid.changeColumns(-1); base = activeScale }
                 else if (activeScale / base < 0.8) { grid.changeColumns(1); base = activeScale }
             }
+        }
+    }
+
+    // "Days" / "Months" / "Years" bubble when zooming switches the grouping
+    Rectangle {
+        id: zoomHint
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.top: bar.bottom
+        anchors.topMargin: Theme.s4
+        z: 10
+        width: zoomHintText.implicitWidth + 2 * Theme.s5
+        height: 36
+        radius: 18
+        color: Theme.toastBg
+        opacity: 0
+        visible: opacity > 0
+        Text {
+            id: zoomHintText
+            anchors.centerIn: parent
+            color: "white"
+            font.pixelSize: Theme.fontBody
+            font.weight: Font.DemiBold
+            text: grid.photoModel.groupBy === "year" ? qsTr("Years")
+                : grid.photoModel.groupBy === "month" ? qsTr("Months") : qsTr("Days")
+        }
+        SequentialAnimation {
+            id: zoomHintAnim
+            NumberAnimation { target: zoomHint; property: "opacity"; to: 0.92; duration: Theme.durFast }
+            PauseAnimation { duration: 900 }
+            NumberAnimation { target: zoomHint; property: "opacity"; to: 0; duration: Theme.durSlow }
+        }
+        Connections {
+            target: grid.photoModel
+            function onGroupByChanged() { if (grid.visible) zoomHintAnim.restart() }
         }
     }
 
