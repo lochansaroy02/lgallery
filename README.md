@@ -261,6 +261,7 @@ Items enable themselves from context: a picture open in the viewer, a selection,
 | Ctrl+1 / 2 / 3 / 4 / 5 | Pictures / Videos / Albums / Collections / Folders |
 | Ctrl+C / Ctrl+Shift+C | Copy picture / copy path |
 | Ctrl+P | Print the picture in the viewer |
+| Ctrl+Shift+B / Ctrl+Shift+L | Set the picture in the viewer as wallpaper / lock screen |
 | Ctrl+L / Ctrl+R | Rotate left / right (saved; revert from ⋮) |
 | Ctrl+Shift+A | Deselect all |
 | Ctrl+Home | Today |

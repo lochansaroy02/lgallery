@@ -145,8 +145,16 @@ QtObject {
             MenuSpec {
                 text: qsTr("Set As")
                 enabled: app.viewingPicture && gallery.wallpaperSupported
-                MenuSpec { text: qsTr("Wallpaper"); enabled: app.viewingPicture; onTriggered: gallery.setAsWallpaper(app.viewer.info.path, "wallpaper") }
-                MenuSpec { text: qsTr("Lock Screen"); enabled: app.viewingPicture; onTriggered: gallery.setAsWallpaper(app.viewer.info.path, "lockscreen") }
+                MenuSpec {
+                    text: qsTr("Wallpaper"); shortcut: "Ctrl+Shift+B"; bindKey: true
+                    enabled: app.viewingPicture && gallery.wallpaperSupported
+                    onTriggered: gallery.setAsWallpaper(app.viewer.info.path, "wallpaper")
+                }
+                MenuSpec {
+                    text: qsTr("Lock Screen"); shortcut: "Ctrl+Shift+L"; bindKey: true
+                    enabled: app.viewingPicture && gallery.wallpaperSupported
+                    onTriggered: gallery.setAsWallpaper(app.viewer.info.path, "lockscreen")
+                }
                 MenuSpec { text: qsTr("Wallpaper and Lock Screen"); enabled: app.viewingPicture; onTriggered: gallery.setAsWallpaper(app.viewer.info.path, "both") }
             }
             MenuSpec {

@@ -31,6 +31,7 @@ from PySide6.QtTest import QTest  # noqa: E402
 from PySide6.QtQml import QQmlEngine, QQmlExpression  # noqa: E402
 
 import main  # noqa: E402
+from backend import desktop  # noqa: E402
 
 OUT = Path(args.out)
 OUT.mkdir(parents=True, exist_ok=True)
@@ -151,6 +152,25 @@ if has_video:
     print("   video items:", vt)
     check("no Set as / Print for a video", "Set as" not in vt and "Print…" not in vt and "Play video" in vt)
     js(f"{moreMenuRef}.close(); viewer.goTo(0)")
+    pump(600)
+
+# Ctrl+Shift+B / Ctrl+Shift+L: set as wallpaper / lock screen (recorded, not applied)
+applied = []
+desktop.apply = lambda path, target: applied.append((os.path.basename(path), target)) or target
+js("viewer.forceActiveFocus()")
+QTest.keyClick(root, Qt.Key_B, Qt.ControlModifier | Qt.ShiftModifier)
+check("Ctrl+Shift+B sets the wallpaper", wait(lambda: ("p0.jpg", "wallpaper") in applied, 5))
+QTest.keyClick(root, Qt.Key_L, Qt.ControlModifier | Qt.ShiftModifier)
+check("Ctrl+Shift+L sets the lock screen", wait(lambda: ("p0.jpg", "lockscreen") in applied, 5))
+check("toast confirms", wait(lambda: js("toast.visible") is True, 3))
+if has_video:
+    js("viewer.goTo(2)")
+    pump(800)
+    before = len(applied)
+    QTest.keyClick(root, Qt.Key_B, Qt.ControlModifier | Qt.ShiftModifier)
+    pump(600)
+    check("shortcuts do nothing on a video", len(applied) == before)
+    js("viewer.goTo(0)")
     pump(600)
 
 # File > Print… (Ctrl+P) opens the print sheet

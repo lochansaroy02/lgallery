@@ -21,11 +21,13 @@ StyledMenu {
         AppMenuItem {
             text: qsTr("Wallpaper")
             iconName: "monitor"
+            shortcutText: "Ctrl+Shift+B"
             onTriggered: gallery.setAsWallpaper(menu.info.path, "wallpaper")
         }
         AppMenuItem {
             text: qsTr("Lock screen")
             iconName: "lock"
+            shortcutText: "Ctrl+Shift+L"
             onTriggered: gallery.setAsWallpaper(menu.info.path, "lockscreen")
         }
         AppMenuItem {
