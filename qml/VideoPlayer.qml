@@ -94,6 +94,13 @@ Item {
         moreMenu.popup(player, Math.max(8, Math.min(x, width - moreMenu.width - 8)),
                                Math.max(8, Math.min(y, height - moreMenu.height - 8)))
     }
+    function captureFrame() {
+        if (!info.path || !gallery.videoThumbnailsSupported) return
+        gallery.captureFrame(info.path, position)
+        flash.show("camera")
+        shutter.restart()
+        poke()
+    }
     function toggleFullScreen() {
         if (fullScreen) win.showNormal()
         else win.showFullScreen()
@@ -212,6 +219,20 @@ Item {
         }
     }
 
+    // camera-style flash when a frame is captured
+    Rectangle {
+        id: shutterRect
+        anchors.fill: parent
+        color: "white"
+        opacity: 0
+        visible: opacity > 0
+        SequentialAnimation {
+            id: shutter
+            NumberAnimation { target: shutterRect; property: "opacity"; to: 0.5; duration: 60 }
+            NumberAnimation { target: shutterRect; property: "opacity"; to: 0; duration: Theme.durSlow; easing.type: Easing.OutQuad }
+        }
+    }
+
     // short feedback bubble for keyboard / click actions
     Rectangle {
         id: flash
@@ -323,6 +344,11 @@ Item {
                         AppMenuItem { text: qsTr("Open with…"); iconName: "openWith"; onTriggered: player.win.openWith([player.info.path]) }
                         AppMenuItem { text: qsTr("Open in default app"); iconName: "monitor"; onTriggered: gallery.openExternally(player.info.path) }
                         AppMenuItem { text: qsTr("Show in folder"); iconName: "showFolder"; onTriggered: gallery.showInFolder(player.info.path) }
+                        AppMenuItem {
+                            text: qsTr("Capture frame"); iconName: "camera"; shortcutText: "S"
+                            enabled: gallery.videoThumbnailsSupported
+                            onTriggered: player.captureFrame()
+                        }
                         MenuDivider { }
                         AppMenuItem { text: qsTr("Copy video"); iconName: "copy"; onTriggered: gallery.shareFiles([player.info.path]) }
                         AppMenuItem { text: qsTr("Copy path"); iconName: "file"; onTriggered: gallery.copyPaths([player.info.path]) }
@@ -599,6 +625,15 @@ Item {
                         }
                     }
                     IconButton {
+                        icon: "camera"
+                        color: "white"
+                        onDark: true
+                        enabled: gallery.videoThumbnailsSupported
+                        tip: gallery.videoThumbnailsSupported ? qsTr("Capture this frame (S)")
+                                                              : qsTr("Capturing frames needs ffmpeg")
+                        onClicked: player.captureFrame()
+                    }
+                    IconButton {
                         icon: player.fullScreen ? "fullscreenExit" : "fullscreen"
                         color: "white"
                         onDark: true
@@ -630,6 +665,7 @@ Item {
         case Qt.Key_Up: player.changeVolume(0.05); break
         case Qt.Key_Down: player.changeVolume(-0.05); break
         case Qt.Key_M: player.toggleMute(); break
+        case Qt.Key_S: player.captureFrame(); break
         case Qt.Key_F: player.toggleFullScreen(); break
         case Qt.Key_BracketLeft: player.stepRate(-1); break
         case Qt.Key_BracketRight: player.stepRate(1); break

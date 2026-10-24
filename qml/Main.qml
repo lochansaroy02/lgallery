@@ -358,7 +358,7 @@ ApplicationWindow {
     Connections {
         target: root.videoPlayer
         function onClosed(position) {
-            viewer.resumeAt = position
+            viewer.resumeFrom(viewer.info.path || "", position)
             viewer.forceActiveFocus()
         }
     }

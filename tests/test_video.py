@@ -134,6 +134,27 @@ class VideoTests(unittest.TestCase):
         where, params = build_filter("search", "video")
         self.assertIn(self.mp4, [it[F_PATH] for it in query_items(where, params)])
 
+    def test_capture_frame(self):
+        self.assertEqual(video.capture_name("/v/clip.mp4", 83456), "clip_frame_01-23-456.jpg")
+        self.assertEqual(video.capture_name("/v/clip.mp4", 3723000), "clip_frame_1-02-03-000.jpg")
+        out_dir = os.path.join(TMP, "captures")
+        os.makedirs(out_dir, exist_ok=True)
+        taken = int(RECORDED.timestamp())
+        first = video.save_frame(self.mp4, 2000, out_dir, taken)
+        second = video.save_frame(self.mp4, 2000, out_dir, taken)   # same moment: new name
+        self.assertNotEqual(first, second)
+        with Image.open(first) as im:
+            self.assertEqual(im.size, (640, 360))
+        meta = scanner.read_metadata(first, 0)
+        self.assertEqual(meta.taken, taken + 2)   # dated at that moment of the recording
+        with Image.open(video.save_frame(self.mov, 1000, out_dir, None)) as im:
+            self.assertEqual(im.size, (360, 640))  # rotation applied
+        end = video.save_frame(self.mp4, 4000, out_dir, taken)      # the very end still works
+        self.assertTrue(os.path.exists(end))
+        with mock.patch.object(video, "FFMPEG", None):
+            with self.assertRaises(RuntimeError):
+                video.frame_at(self.mp4, 0)
+
     def test_thumbnail_and_full(self):
         out = thumbs.cache_path(self.mov, "t")
         im = thumbs.make_thumbnail(self.mov, out)

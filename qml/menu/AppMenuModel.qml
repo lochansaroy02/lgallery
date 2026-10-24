@@ -315,6 +315,12 @@ QtObject {
                 checkable: true; checked: app.viewing && app.viewer.videoMuted
                 onTriggered: app.viewer.toggleMute()
             }
+            MenuSpec {
+                text: qsTr("Capture Frame"); shortcut: "S"
+                visible: app.viewing && app.viewer.isVideo
+                enabled: app.viewing && app.viewer.isVideo && gallery.videoThumbnailsSupported
+                onTriggered: app.viewer.captureFrame()
+            }
             MenuSpec { separator: true; visible: app.viewing && app.viewer.isVideo }
             MenuSpec { text: qsTr("Zoom In"); shortcut: "+"; enabled: app.viewing; onTriggered: app.viewer.zoomStep(1.5) }
             MenuSpec { text: qsTr("Zoom Out"); shortcut: "-"; enabled: app.viewing; onTriggered: app.viewer.zoomStep(1 / 1.5) }

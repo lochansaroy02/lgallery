@@ -11,7 +11,7 @@ StyledMenu {
     readonly property var info: viewer ? viewer.info : ({})
     readonly property bool isPicture: info.video !== true
     readonly property bool usable: info.available === true
-    readonly property int setAsIndex: 4   // after Open Gallery, Play video, Details, divider
+    readonly property int setAsIndex: 5   // after Open Gallery, Play video, Capture frame, Details, divider
 
     // "Set as" only exists for pictures: added / removed each time the menu opens
     property StyledMenu setAsMenu: StyledMenu {
@@ -54,6 +54,14 @@ StyledMenu {
         shortcutText: "Enter"
         visible: !menu.isPicture
         onTriggered: menu.viewer.playCurrent()
+    }
+    AppMenuItem {
+        text: qsTr("Capture frame")
+        iconName: "camera"
+        shortcutText: "S"
+        visible: !menu.isPicture
+        enabled: menu.usable && gallery.videoThumbnailsSupported
+        onTriggered: menu.viewer.captureFrame()
     }
     AppMenuItem {
         text: qsTr("Details")

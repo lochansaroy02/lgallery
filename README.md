@@ -159,13 +159,14 @@ To stop using Gallery as the default, pick another app in Dolphin's **File Type 
 - **Formats:** mp4, m4v, mov, mkv, webm, avi, 3gp, mts/m2ts, wmv, ogv, mpg/mpeg.
 - **Date:** the recording date stored in the video, otherwise the file's modification time. Videos are sorted with your photos by that date.
 - **Thumbnails and length:** made with `ffmpeg` / `ffprobe` (installed by `update.sh`). Without ffmpeg, MP4/MOV/3GP dates, sizes and lengths are still read from the file, and thumbnails show a placeholder. Real thumbnails appear once ffmpeg is installed.
-- **In the viewer:** a video starts playing on its own, muted and looping. The **🔇 button** (or **M**) turns the sound on or off. **Play video** (or **Enter**, or a double-click) opens the player and continues from the same moment. Back in the viewer, the preview continues from where the player stopped.
+- **In the viewer:** a video starts playing on its own, muted and looping. The **🔇 button** (or **M**) turns the sound on or off. The **📷 button** next to it (or **S**) captures the frame on screen. **Play video** (or **Enter**, or a double-click) opens the player and continues from the same moment. Back in the viewer, the preview continues from where the player stopped.
 - **The player:**
   - seek bar with a time bubble while you drag or hover;
   - play/pause, back and forward 10 seconds, volume slider, mute;
   - playback speed from 0.25× to 2×, loop, full screen;
   - controls hide while the video plays and come back when you move the mouse;
   - when a codec isn't supported, the player says so and offers *Open in default app*.
+- **Capture frame** (📷, **S**, in the viewer and the player) saves the exact frame at the video's full resolution as a JPEG next to the video (`clip_frame_01-23-456.jpg`), or in `~/Pictures/Screenshots` when the video's folder is read-only. The picture is dated at that moment of the recording, so it sits right beside the video in your gallery. Needs ffmpeg.
 - **Playback** uses Qt Multimedia with its FFmpeg backend (`qt6-multimedia`, `qt6-multimedia-ffmpeg`). The file is played from disk as it is read, never loaded into memory. If Qt Multimedia is missing, the rest of Gallery still works, and videos open in your default player.
 - Videos are skipped by People (faces), Stories and the photo editor. They do count for Places when they carry GPS.
 
@@ -274,6 +275,7 @@ Items enable themselves from context: a picture open in the viewer, a selection,
 | Viewer, on a video: Enter / double-click, M | Play in the player with sound, mute/unmute the preview |
 | Player: Space or K, ← → (5 s), J L (10 s) | Play/pause, seek |
 | Player: ↑ ↓ or wheel, M, [ ], 0–9, F | Volume, mute, speed, jump to 0–90 %, full screen |
+| Viewer on a video, or player: S | Capture the current frame as a picture |
 | Viewer opened from Dolphin: Esc | Close (quits Gallery) |
 | Editor: Ctrl+Z / Ctrl+Shift+Z | Undo / Redo |
 | Editor: Ctrl+S / Ctrl+Shift+S | Save / Save as copy |

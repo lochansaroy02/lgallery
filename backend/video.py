@@ -291,3 +291,56 @@ def poster(path: str, width: int, height: int, duration: float = 0.0) -> tuple[I
     elif not os.path.exists(path):
         raise FileNotFoundError(path)
     return placeholder(width, height), False
+
+
+# ---- frame capture ------------------------------------------------------------------------
+def frame_at(path: str, ms: int) -> Image.Image:
+    """The frame shown at ms, at the video's full resolution (rotation applied)."""
+    if not FFMPEG:
+        raise RuntimeError("Capturing frames needs ffmpeg (sudo pacman -S ffmpeg)")
+    at = max(0, ms) / 1000
+    # input seeking is frame-accurate when decoding; PNG keeps the frame lossless until saved
+    cmd = [FFMPEG, "-v", "error", "-nostdin", "-ss", f"{at:.3f}", "-i", path,
+           "-frames:v", "1", "-f", "image2pipe", "-c:v", "png", "-"]
+    try:
+        out = subprocess.run(cmd, capture_output=True, timeout=FRAME_TIMEOUT, check=False,
+                             stdin=subprocess.DEVNULL)
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise RuntimeError(f"ffmpeg failed: {exc}") from exc
+    if not out.stdout and at > 0.05:  # asked for the very end: take the last frame instead
+        return frame_at(path, int(ms - 100))
+    if not out.stdout:
+        raise RuntimeError("No frame at this position")
+    im = Image.open(io.BytesIO(out.stdout))
+    im.load()
+    return im.convert("RGB")
+
+
+def capture_name(video_path: str, ms: int) -> str:
+    """clip_frame_01-23-456.jpg for a frame at 1:23.456."""
+    base = os.path.splitext(os.path.basename(video_path))[0]
+    s, millis = divmod(max(0, int(ms)), 1000)
+    h, rem = divmod(s, 3600)
+    m, s = divmod(rem, 60)
+    stamp = (f"{h}-" if h else "") + f"{m:02d}-{s:02d}-{millis:03d}"
+    return f"{base}_frame_{stamp}.jpg"
+
+
+def save_frame(video_path: str, ms: int, folder: str, taken: int | None) -> str:
+    """Write the frame at ms as a JPEG in folder; EXIF date = recording date + ms. Returns its path."""
+    im = frame_at(video_path, ms)
+    out = os.path.join(folder, capture_name(video_path, ms))
+    root, ext = os.path.splitext(out)
+    n = 2
+    while os.path.exists(out):
+        out = f"{root} ({n}){ext}"
+        n += 1
+    exif = Image.Exif()
+    if taken:
+        when = datetime.fromtimestamp(taken + ms / 1000)
+        exif.get_ifd(0x8769)[36867] = when.strftime("%Y:%m:%d %H:%M:%S")   # DateTimeOriginal
+    exif[0x010E] = f"Frame from {os.path.basename(video_path)}"         # ImageDescription
+    tmp = out + ".part"
+    im.save(tmp, "JPEG", quality=95, exif=exif)
+    os.replace(tmp, out)
+    return out

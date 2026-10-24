@@ -91,6 +91,7 @@ class Gallery(QObject):
     shareTargetsChanged = Signal()
     libraryReloaded = Signal()
     printersLoaded = Signal("QVariantMap")   # {printers: [...], paper: "a4"}
+    frameCaptured = Signal(str)              # path of the saved video frame
 
     def __init__(self, settings: Settings, parent=None):
         super().__init__(parent)
@@ -614,6 +615,50 @@ class Gallery(QObject):
     def openExternally(self, path):
         if not actions.open_default(path):
             self.toast.emit("No application is set up to open this file")
+
+    # ---- video frame capture --------------------------------------------------------------------
+    @Slot(str, int)
+    def captureFrame(self, path, ms):
+        """Save the video frame at ms (full resolution) next to the video and add it to the library."""
+        def work():
+            from PySide6.QtCore import QStandardPaths
+
+            from . import video
+            from .scanner import UPSERT, read_metadata
+
+            conn = db.connect()
+            row = conn.execute("SELECT root, taken FROM images WHERE path = ?", (path,)).fetchone()
+            taken = row[1] if row else None
+            if taken is None:
+                meta = video.probe(path)
+                taken = meta.taken if meta and meta.taken else int(os.stat(path).st_mtime)
+            folder = os.path.dirname(path)
+            if not os.access(folder, os.W_OK):  # read-only drive: ~/Pictures/Screenshots
+                pictures = QStandardPaths.writableLocation(QStandardPaths.PicturesLocation)
+                folder = os.path.join(pictures or os.path.expanduser("~"), "Screenshots")
+                os.makedirs(folder, exist_ok=True)
+                row = None
+            out = video.save_frame(path, ms, folder, taken)
+            if row:  # same watched folder as the video: index it right away
+                st = os.stat(out)
+                meta = read_metadata(out, st.st_mtime)
+                if meta:
+                    with conn:
+                        conn.execute(UPSERT, (out, row[0], folder, os.path.basename(out), meta.taken,
+                                              st.st_mtime, st.st_size, meta.width, meta.height,
+                                              None, None, 0, 0.0))
+            return out
+
+        def done(out):
+            self.reloadLibrary()
+            self.toast.emit(f"Frame saved to {os.path.basename(os.path.dirname(out))}")
+            self.frameCaptured.emit(out)
+
+        def failed(exc):
+            log.warning("frame capture failed for %s: %s", path, exc)
+            self.toast.emit(str(exc) or "Couldn't capture the frame")
+
+        run_async(work, on_done=done, on_error=failed)
 
     # ---- set as wallpaper / lock screen, print ----------------------------------------------
     @Property(bool, constant=True)

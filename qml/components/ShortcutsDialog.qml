@@ -40,11 +40,12 @@ Popup {
             ["Del", qsTr("Move to trash")], ["Esc", qsTr("Close")],
             ["Ctrl+P", qsTr("Print")],
             ["Ctrl+Shift+B / Ctrl+Shift+L", qsTr("Set as wallpaper / lock screen")],
-            [qsTr("Enter / double-click"), qsTr("Play a video with sound")], ["M", qsTr("Mute / unmute the preview")] ] },
+            [qsTr("Enter / double-click"), qsTr("Play a video with sound")], ["M", qsTr("Mute / unmute the preview")],
+            ["S", qsTr("Capture the video frame")] ] },
         { title: qsTr("Video player"), keys: [
             ["Space / K", qsTr("Play / pause")], ["← / →", qsTr("Back / forward 5 seconds")],
             ["J / L", qsTr("Back / forward 10 seconds")], ["↑ / ↓, wheel", qsTr("Volume")],
-            ["M", qsTr("Mute")], ["[ / ]", qsTr("Slower / faster")], ["0 … 9", qsTr("Jump to 0 … 90 %")],
+            ["M", qsTr("Mute")], ["S", qsTr("Capture frame")], ["[ / ]", qsTr("Slower / faster")], ["0 … 9", qsTr("Jump to 0 … 90 %")],
             ["F, double-click", qsTr("Full screen")], ["Esc", qsTr("Close")] ] },
         { title: qsTr("Stories"), keys: [
             [qsTr("Click right / left side"), qsTr("Next / previous picture")], [qsTr("Press and hold"), qsTr("Pause")],

@@ -31,7 +31,10 @@ Item {
     property bool videoMuted: true    // inline video previews start muted
     property bool playerOpen: false   // the video player is showing the current video
     readonly property alias moreMenu: moreMenu
-    property int resumeAt: 0          // continue the preview where the player stopped
+    readonly property alias captureButton: captureButton
+    property int resumeAt: 0          // continue the preview where the player stopped...
+    property string resumePath: ""    // ...for this video only
+    function resumeFrom(path, ms) { resumePath = path; resumeAt = ms }
     readonly property bool isVideo: info.video === true
     readonly property var preview: pager.currentItem ? pager.currentItem.preview : null
 
@@ -40,6 +43,14 @@ Item {
         win.playVideo(info, preview ? preview.position : 0)
     }
     function toggleMute() { videoMuted = !videoMuted }
+    // save the frame on screen as a picture next to the video (full resolution, via ffmpeg)
+    function captureFrame() {
+        if (!isVideo || !info.path || info.available !== true) return
+        var ms = preview ? preview.position : resumeAt
+        gallery.captureFrame(info.path, ms)
+        resumeFrom(info.path, ms)    // the library reloads with the new picture: keep playing from here
+        captureFlash.restart()
+    }
     // ⋮ menu at a point (right-click), kept inside the window
     function openMenuAt(x, y) {
         if (closing || !info.path) return
@@ -88,7 +99,7 @@ Item {
         chrome = true
         detailsOpen = false
         videoMuted = true
-        resumeAt = 0
+        resumeFrom("", 0)
         visible = true
         pager.positionViewAtIndex(index, ListView.Beginning)
         pager.currentIndex = index
@@ -323,8 +334,9 @@ Item {
                     Behavior on opacity { NumberAnimation { duration: Theme.durNormal } }
                     onLoaded: {
                         item.loops = true
-                        item.startPosition = viewer.resumeAt
+                        item.startPosition = viewer.resumePath === page.item.path ? viewer.resumeAt : 0
                         viewer.resumeAt = 0
+                        viewer.resumePath = ""
                         item.source = page.item.url
                     }
                     Binding {
@@ -677,6 +689,28 @@ Item {
             }
         }
         Rectangle {
+            id: captureRound
+            x: playPill.x + playPill.width + Theme.s3 + 44 + Theme.s2
+            anchors.verticalCenter: parent.verticalCenter
+            width: 44
+            height: 44
+            radius: 22
+            color: Qt.rgba(0, 0, 0, 0.55)
+            border.color: Qt.rgba(1, 1, 1, 0.22)
+            IconButton {
+                id: captureButton
+                anchors.fill: parent
+                icon: "camera"
+                color: "white"
+                onDark: true
+                iconSize: 20
+                enabled: viewer.info.available === true && gallery.videoThumbnailsSupported
+                tip: gallery.videoThumbnailsSupported ? qsTr("Capture this frame (S)")
+                                                      : qsTr("Capturing frames needs ffmpeg")
+                onClicked: viewer.captureFrame()
+            }
+        }
+        Rectangle {
             anchors.right: playPill.left
             anchors.rightMargin: Theme.s3
             anchors.verticalCenter: parent.verticalCenter
@@ -702,6 +736,20 @@ Item {
         visible: viewer.isVideo && viewer.preview !== null && viewer.preview.duration > 0 && !viewer.closing
         width: visible ? parent.width * viewer.preview.position / viewer.preview.duration : 0
         color: Theme.accent
+    }
+
+    // camera-style flash when a frame is captured
+    Rectangle {
+        id: flashRect
+        anchors.fill: parent
+        color: "white"
+        opacity: 0
+        visible: opacity > 0
+        SequentialAnimation {
+            id: captureFlash
+            NumberAnimation { target: flashRect; property: "opacity"; to: 0.55; duration: 60 }
+            NumberAnimation { target: flashRect; property: "opacity"; to: 0; duration: Theme.durSlow; easing.type: Easing.OutQuad }
+        }
     }
 
     MouseArea {
@@ -731,6 +779,7 @@ Item {
         case Qt.Key_E: if (viewer.info.available && !viewer.info.animated && !viewer.isVideo) viewer.win.openEditor(viewer.info); break
         case Qt.Key_Return: case Qt.Key_Enter: case Qt.Key_P: viewer.playCurrent(); break
         case Qt.Key_M: if (viewer.isVideo) viewer.toggleMute(); break
+        case Qt.Key_S: if (viewer.isVideo) viewer.captureFrame(); break
         case Qt.Key_Menu: viewer.openMenuFromButton(); break
         case Qt.Key_Plus: case Qt.Key_Equal:
             if (page) page.animatedZoomAt(page.zoom * 1.5, width / 2, height / 2); break

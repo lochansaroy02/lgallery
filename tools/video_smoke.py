@@ -26,7 +26,8 @@ os.environ["LGALLERY_HOME"] = str(tmp / "home")
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from PIL import Image  # noqa: E402
-from PySide6.QtCore import QCoreApplication, QEventLoop  # noqa: E402
+from PySide6.QtCore import QCoreApplication, QEventLoop, Qt  # noqa: E402
+from PySide6.QtTest import QTest  # noqa: E402
 from PySide6.QtQml import QQmlEngine, QQmlExpression  # noqa: E402
 
 import main  # noqa: E402
@@ -139,6 +140,17 @@ check("unmute", js("viewer.preview.muted") is False)
 js("viewer.toggleMute()")
 check("mute again", js("viewer.preview.muted") is True)
 
+# S / 📷 saves the frame on screen next to the video and adds it to the library
+before = gallery.photos.itemCount
+js("viewer.forceActiveFocus()")
+QTest.keyClick(root, Qt.Key_S)
+check("S captures a frame", wait(lambda: len(list(lib.glob("b_clip_frame_*.jpg"))) == 1, 15))
+check("capture added to the library", wait(lambda: gallery.photos.itemCount == before + 1, 10))
+check("preview keeps playing from the same moment after a capture",
+      wait(lambda: js("viewer.preview !== null && viewer.preview.playing") is True, 10) and (js("viewer.preview.position") or 0) > 500)
+check("capture button next to mute", js("viewer.captureButton.enabled && viewer.captureButton.visible") is True)
+shot("v3b-viewer-capture-button", 300)
+
 # Play video -> built-in player with sound, continuing from the preview
 js("Qt.callLater(function() { viewer.playCurrent() })")
 check("player open", wait(lambda: js("playingVideo") is True, 5))
@@ -160,6 +172,8 @@ js("videoPlayer.togglePlay()")
 check("resume", wait(lambda: js("videoPlayer.playing") is True, 5))
 js("videoPlayer.seekFraction(0.5)")
 check("seek to 50 %", wait(lambda: abs(js("videoPlayer.position") - 3000) < 900, 5))
+js("videoPlayer.captureFrame()")
+check("player captures a frame too", wait(lambda: len(list(lib.glob("b_clip_frame_*.jpg"))) == 2, 15))
 js("goBack()")
 check("Esc closes the player", wait(lambda: js("playingVideo") is False, 3))
 check("preview resumes muted", wait(lambda: js("viewer.preview !== null && viewer.preview.playing") is True, 10)
