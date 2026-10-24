@@ -28,8 +28,15 @@ Item {
 
     readonly property int columns: Math.max(1, photoModel.columns)
     readonly property real cellSize: Math.max(24, Math.floor((list.width - Theme.gridGap * (columns - 1)) / columns))
-    readonly property real headerHeight: bigHeader ? Math.max(150, Math.min(250, height * 0.3)) : 0
-    readonly property real collapse: bigHeader
+    // the big title area. With the empty-state message on a short window there is no room
+    // for both: the big title then folds into the top bar, as One UI does.
+    readonly property real emptyNeed: emptyLoader.active && emptyLoader.item ? emptyLoader.item.implicitHeight + Theme.s5 : 0
+    readonly property real fullHeader: Math.max(150, Math.min(250, height * 0.3))
+    readonly property real roomForHeader: height - bottomInset - Theme.barHeight - emptyNeed
+    readonly property real headerHeight: !bigHeader ? 0
+        : emptyNeed <= 0 ? fullHeader
+        : roomForHeader >= 150 ? Math.min(fullHeader, roomForHeader) : 0
+    readonly property real collapse: bigHeader && headerHeight > 0
         ? Math.max(0, Math.min(1, (list.contentY - list.originY) / (headerHeight * 0.7))) : 1
     readonly property string selectionText: photoModel.selectionCount === 0
         ? qsTr("Select items") : qsTr("%1 selected").arg(photoModel.selectionCount)
@@ -212,7 +219,7 @@ Item {
         header: BigTitle {
             width: list.width
             height: grid.headerHeight
-            visible: grid.bigHeader
+            visible: grid.bigHeader && height > 0
             title: grid.selectMode ? grid.selectionText : grid.title
             subtitle: grid.subtitle
             busy: grid.busy
@@ -332,13 +339,29 @@ Item {
         labelForRow: function(row) { return grid.photoModel.monthLabelForRow(row) }
     }
 
-    Loader {
-        anchors.top: bar.bottom
-        anchors.topMargin: Math.max(Theme.s6 * 2, grid.headerHeight * 0.6)
-        anchors.horizontalCenter: parent.horizontalCenter
-        width: Math.min(parent.width - 48, 460)
-        active: grid.emptyState !== null && grid.photoModel.itemCount === 0 && !grid.photoModel.loading
-        sourceComponent: grid.emptyState
+    // empty state: below the big title (never over it), centred in the space that is left,
+    // and scaled down a little when the window is too short for both
+    Item {
+        id: emptyArea
+        anchors.top: list.top
+        anchors.topMargin: grid.headerHeight + Theme.s2
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: grid.bottomInset
+        visible: emptyLoader.active
+
+        Loader {
+            id: emptyLoader
+            anchors.centerIn: parent
+            width: Math.min(parent.width - 48, 460)
+            active: grid.emptyState !== null && grid.photoModel.itemCount === 0 && !grid.photoModel.loading
+            sourceComponent: grid.emptyState
+            transformOrigin: Item.Top
+            scale: item && item.implicitHeight > 0 ? Math.min(1, Math.max(0.75, parent.height / item.implicitHeight)) : 1
+            // keep the top edge inside the area when scaled
+            anchors.verticalCenterOffset: item && scale < 1 ? -(parent.height - height) / 2 : 0
+        }
     }
 
     SelectionBar {

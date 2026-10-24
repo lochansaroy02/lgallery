@@ -2,8 +2,8 @@ import QtQuick
 import QtQuick.Controls
 import ".."
 
-// The large title area at the top of a scrolling page. Like One UI, the title sits centred
-// in the space under the top bar, in a large display size, with the count underneath; it
+// The large title area at the top of a scrolling page (it starts under the top bar). Like
+// One UI, the title sits centred in it, in a large display size, with the count underneath; it
 // shrinks and fades as the page scrolls and the small title in the top bar takes over.
 Item {
     id: big
@@ -17,9 +17,7 @@ Item {
         id: block
         x: big.centered ? (big.width - width) / 2 : Theme.pageMargin + 4
         width: big.width - 2 * (Theme.pageMargin + 4)
-        // centred in the area below the top bar (Theme.barHeight)
-        y: big.centered ? Theme.barHeight + (big.height - Theme.barHeight - height) / 2
-                        : big.height - height - Theme.s6
+        y: big.centered ? (big.height - height) / 2 : big.height - height - Theme.s6
         spacing: Theme.s2
         opacity: 1 - Math.min(1, big.progress * 1.6)
         scale: 1 - big.progress * 0.1
